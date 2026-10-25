@@ -97,3 +97,4 @@ Activity mode:
 - Frontend uses React 19 instead of React 18: the current Vite react-ts template ships React 19, and nothing in the spec depends on 18.
 - The "Blocked" pill uses a neutral outline instead of a colored fill, because `spec.md > Look and Feel` reserves red for errors.
 - Re-applied the approved spec corrections (deadline wording, retry rule, Python version) to `spec.md`: an earlier write had updated only `spec.html`. Found during slice 1.
+- Documented the limitation of grounding's strict substring matching: `Friday`/`Fri` verify inside "by Friday" and `Mi` inside "Mia". Found while verifying Slice 2 against the learner's expectations. The learner chose to keep the approved spec's plain substring rule (no whole-word or lead-in-word rules) and record the limitation; see `spec.md > Backend: Grounding Check`.

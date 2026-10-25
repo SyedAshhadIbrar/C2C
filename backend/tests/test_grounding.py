@@ -119,3 +119,34 @@ def test_unknown_dependency_dropped_with_warning():
     t = check_tasks([task("Mia will finish the auth API by Friday", blocked_by=["t9"])], NOTES)[0]
     assert t.blocked_by == []
     assert any("t9" in w for w in t.warnings)
+
+
+# --- documented limitation of strict substring matching (approved spec) ---
+# A shortened deadline or partial owner that is still a substring of the source
+# phrase counts as verified. Paraphrases and converted dates still fail.
+
+PHRASE = "Mia will finish the auth API by Friday"
+
+
+def test_shortened_deadline_friday_matches_within_by_friday():
+    t = check_tasks([task(PHRASE, deadline="Friday")], NOTES)[0]
+    assert t.warnings == []
+    assert t.deadline == "Friday"  # displayed as returned, never expanded or converted
+
+
+def test_abbreviated_deadline_fri_matches_within_by_friday():
+    assert warnings_for(task(PHRASE, deadline="Fri")) == []
+
+
+def test_partial_owner_matches_within_name():
+    assert warnings_for(task(PHRASE, owner="Mi")) == []
+
+
+def test_deadline_case_and_whitespace_variations_verified():
+    for deadline in ["BY FRIDAY", "by   Friday", " by\tfriday "]:
+        assert warnings_for(task(PHRASE, deadline=deadline)) == [], deadline
+
+
+def test_deadline_paraphrases_fail():
+    for deadline in ["end of week", "this Friday", "Fri.", "friday 5pm"]:
+        assert warnings_for(task(PHRASE, deadline=deadline)) == [DEADLINE_NOT_FOUND], deadline
