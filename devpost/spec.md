@@ -1,0 +1,286 @@
+---
+doc: spec
+status: approved
+---
+
+# Chaos to Clarity — Technical Spec
+
+## How This Works, In Plain Language
+Chaos to Clarity has two small programs that run on your laptop:
+
+- **The frontend** (React + TypeScript) is the screen: notes on the left, results on the right. It holds the current plan in memory while you edit it, and it builds the Markdown export. Reloading the page clears everything; nothing is saved.
+- **The backend** (FastAPI, Python) has one job. It takes your notes, asks Qwen to pull out tasks and open questions as JSON, **checks that answer twice**, and sends the checked result back. It's the only place that knows your API key.
+
+The two checks are the heart of the app:
+
+1. **Schema check (Pydantic):** "Is this the right *shape*?" Qwen's JSON mode guarantees JSON, but not *our* JSON. Pydantic models describe exactly what a task must look like. If the answer doesn't fit, the backend asks once more, then reports an error. Nothing half-checked reaches the screen.
+2. **Grounding check (our matching rules):** "Is it *supported by the notes*?" Every task's source phrase must appear in the notes as one continuous passage, ignoring only capitalization, extra spaces, and quote style. Owners and deadlines must appear inside that task's source phrase. Anything that fails is still shown, with a verification warning.
+
+If no API key is set, the backend runs in **sample mode**. It returns a saved, realistic Qwen response for the demo notes instead of calling the AI, and the screen shows a "Sample mode" badge. Both checks still run, so the reliability features are real even before the key works.
+
+Why this shape: one endpoint, no database, no login. That's the smallest setup that keeps the key off the browser and puts validation where it's easy to test.
+
+## The Core Journey Through the System
+PRD ref: `prd.md > The Core Journey`.
+
+1. **Open:** the browser loads the frontend from the Vite dev server. The right panel shows `EmptyState`.
+2. **Paste + Organize Notes:** if the box is empty, the frontend shows "Paste notes first" and makes no request. Otherwise it `POST`s `{ notes }` to `/api/organize` and the right panel shows a loading state.
+3. **Backend extraction:** `extract.py` sends the notes plus the extraction prompt to Qwen in JSON mode (or loads `sample_response.json` in sample mode).
+4. **Schema check:** `schemas.py` parses the reply into `Extraction`. If the JSON is malformed or fails the schema, there's one automatic retry; if that fails too, the backend returns HTTP 502 → the frontend shows an error with a **Retry** button, and the notes stay put.
+5. **Grounding check:** `grounding.py` checks each task's source phrase against the notes, and the owner and deadline against the source phrase. It attaches `warnings` ("Needs verification"). No retry happens here.
+6. **Results:** the frontend turns the response into its in-memory plan and renders `TaskCard`s, `BlockersSection`, and `OpenQuestions`. If there are zero tasks, it shows "No actionable tasks found," with open questions still listed.
+7. **Edit:** card edits change in-memory state only. Edited owners and deadlines are marked `user`. Delete asks for inline confirmation. **Add task** creates a `user`-origin card.
+8. **Export:** `exportMarkdown.ts` turns the current state into Markdown and the browser downloads `action-plan.md`.
+
+## Stack
+- **Frontend:** React 19 + TypeScript, scaffolded with Vite. *Learner's choice: familiar tools.* Docs: https://react.dev, https://vite.dev/guide/
+- **Styling:** plain CSS with color variables (no UI library). This keeps the look calm and custom without adding a dependency.
+- **Backend:** Python + FastAPI + Uvicorn. *Learner's choice: familiar.* Docs: https://fastapi.tiangolo.com
+- **Validation:** Pydantic v2 (comes with FastAPI). Docs: https://docs.pydantic.dev
+- **AI client:** the `openai` Python SDK pointed at Qwen's OpenAI-compatible endpoint. *Learner chose Qwen via Alibaba Cloud Model Studio.* Docs: https://www.alibabacloud.com/help/en/model-studio/
+- **Config:** `python-dotenv` reads `backend/.env`.
+- **Tests:** `pytest` (backend grounding and schema), `vitest` (export). Docs: https://docs.pytest.org, https://vitest.dev
+
+**Python version:** use **Python 3.12 or 3.13** for the backend (not the installed 3.15). Built with **3.12** via `uv venv --python 3.12`, because 3.13 is blocked from running on this machine (see `checklist.md > Revisions`).
+
+**Check early in the build (unverified):**
+- The Qwen details below come from third-party docs. Confirm the base URL, the model name, and `response_format: json_object` support in the Model Studio console with a one-request smoke test.
+
+## Where It Runs and How Someone Tries It
+Runs locally only, with no deployment (`scope.md > Later`). It needs Node 18+ (24 installed), Python 3.12 (via `uv`), and optionally a Model Studio API key.
+
+```
+# terminal 1 — backend
+cd backend
+uv venv --python 3.12
+uv pip install -r requirements.txt
+copy .env.example .env      # add DASHSCOPE_API_KEY, or leave it blank for sample mode
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+
+# terminal 2 — frontend
+cd frontend
+npm install
+npm run dev                 # open http://localhost:5173
+```
+Vite proxies `/api` to `localhost:8000`, so no CORS setup is needed.
+
+**Demo recording:** paste `demo/notes.txt` → Organize Notes → point out the "finish this soon" card → add a date to it → resolve a question → delete or add a task → export and open `action-plan.md`. Use `demo/ambiguity-test.txt` to show warnings. For the submission: a short video plus a public GitHub repo (see `6-ship`).
+
+## Look and Feel
+From `prd.md > Look and Feel`, as CSS variables in `styles.css`:
+- `--bg: #f7f5f0` (warm off-white) · `--card: #ffffff` · `--ink: #2a2b2e` (charcoal) · `--muted: #6a6d72` · `--line: #e2ddd3`
+- `--accent: #3f8a7e` (muted teal/sage): primary button, focus rings, verified/source accents
+- `--warn: #a8640c` / `--warn-bg: #fdf1dc` (amber): "Deadline not specified," "Unassigned," verification warnings
+- `--err: #b03a2e` / `--err-bg: #fbe9e7`: error messages only
+- **Type:** "Inter" (Google Fonts) falling back to `system-ui`. Title 600 weight; labels 12px uppercase-ish small caps; body 15px.
+- **Layout:** two columns (`grid-template-columns: minmax(320px, 2fr) 3fr`), 24px gaps, 12px card radius, 1px borders, no heavy shadows. Stacks to one column under 800px.
+- **Source phrase:** an italic quote block with a teal left border. The verification warning sits in that same spot in amber.
+- **Labels:** small pills: `Unassigned`, `Deadline not specified`, `User-added`, `user-provided`, `Needs verification`.
+- **Motion:** cards fade and slide up 4px, staggered about 30ms, about 200ms total. Respects `prefers-reduced-motion`.
+- **Avoid:** gradients, glassmorphism, extra colors.
+
+## Components
+
+### Backend: Organize Endpoint (`app/main.py`)
+`POST /api/organize`, body `{ "notes": string }`.
+- Empty or whitespace-only notes → 400 (the frontend also blocks this).
+- Calls the Qwen Extraction Service → the schema check (in `extract.py`) → the Grounding Check, and returns `OrganizeResponse`.
+- AI or schema failure after the retry → 502 `{ "detail": "..." }`.
+
+`GET /api/health` → `{ "mode": "live" | "sample" }`.
+PRD ref: `prd.md > Organizing Notes`, `prd.md > States and Boundaries`.
+
+### Backend: Qwen Extraction Service (`app/extract.py`)
+- Builds the prompt and calls `client.chat.completions.create(model=QWEN_MODEL, response_format={"type": "json_object"}, temperature=0, messages=[system, user])`.
+- **The prompt rules (in the system message) mirror the product rules:** extract only what's stated; `owner`/`deadline` are `null` unless explicitly stated; relative deadlines are copied **exactly as written** and never converted; set `deadline_ambiguous: true` if a stated deadline is genuinely unclear; `source_phrase` is copied verbatim from the notes; unanswered questions are listed and never answered. It includes the JSON shape and the word "JSON" (JSON mode requires it).
+- Validates with `Extraction.model_validate_json(...)`. **Retry rule:** exactly **one** automatic retry, only when the reply is malformed JSON or fails the Pydantic schema check. If the retry also fails, it raises, which becomes a 502. **Grounding failures never trigger a retry.** They stay in the result as visible "Needs verification" warnings.
+- **Sample mode:** if `DASHSCOPE_API_KEY` is empty, it skips the call, loads `app/sample_response.json`, and sets `mode = "sample"`. The sample still goes through the schema check and the grounding check.
+PRD ref: `prd.md > Organizing Notes`.
+
+### Backend: Schemas (`app/schemas.py`) — Schema Check
+Pydantic models (see **Data Model**). They reject missing fields, wrong types, and empty titles or source phrases. Unknown extra fields are ignored.
+PRD ref: `prd.md > Task Cards`.
+
+### Backend: Grounding Check (`app/grounding.py`)
+Kept separate from the schema check, as the learner decided.
+
+**Normalization** (applied to both sides before comparing):
+1. Lowercase.
+2. Curly quotes → straight: `‘ ’` → `'`, `“ ”` → `"`.
+3. Collapse every run of whitespace (spaces, tabs, newlines) into one space, and trim the ends.
+
+Nothing else is normalized: no punctuation stripping, no stemming, no fuzzy or similarity scoring.
+
+**Rules:**
+- **Source phrase verified** ⇔ `normalize(source_phrase)` is a substring of `normalize(notes)`, meaning one contiguous passage. Paraphrases and altered wording fail.
+- **Owner verified** ⇔ the owner is null, or `normalize(owner)` is a substring of `normalize(source_phrase)`.
+- **Deadline verified** ⇔ the deadline is null, or `normalize(deadline)` is a substring of `normalize(source_phrase)`. The deadline is kept **exactly as worded in the notes**, including relative dates like "by Friday" or "next week". It's never reworded or converted to a calendar date, either before or after the check. Normalization is used only for comparing, never for display or export.
+- Each failure adds a warning string to `task.warnings`, e.g. `"Source phrase not found in notes"`, `"Owner not found in source phrase"`, `"Deadline not found in source phrase"`. Failing tasks are **never removed**.
+
+PRD ref: `prd.md > Verification Warnings`.
+
+### Frontend: App Shell (`src/App.tsx`)
+Holds all state (`useState`): `notes`, `status` (`idle | loading | error | done`), `plan`, `mode`. Renders a two-column grid with `NotesPanel` and `ResultsPanel`.
+PRD ref: `prd.md > Screens and Layout`.
+
+### Frontend: NotesPanel (`src/components/NotesPanel.tsx`)
+The textarea and the **Organize Notes** button (disabled while loading). Shows the "Paste notes first" message for empty input.
+PRD ref: `prd.md > Organizing Notes`.
+
+### Frontend: ResultsPanel (`src/components/ResultsPanel.tsx`)
+Switches on status: `EmptyState` (idle) · loading · error with **Retry** · results. Results show the toolbar (**Add task**, **Export**, plus a "Sample mode" badge when relevant), the task cards, `BlockersSection`, and `OpenQuestions`. With zero tasks it shows "No actionable tasks found."
+PRD ref: `prd.md > States and Boundaries`.
+
+### Frontend: TaskCard (`src/components/TaskCard.tsx`)
+Shows, in order: title → owner (or `Unassigned` pill) → deadline (or `Deadline not specified` pill + "Clarify the deadline" prompt; an ambiguous deadline also gets the prompt) → source phrase (or a warning) → blocked status ("Blocked by: <task title>"). Title, owner, and deadline are inline inputs. Editing the owner or deadline sets its origin to `user`, shows a `user-provided` pill, and removes the matching missing-info flag and that field's verification warning. The source phrase is never changed by edits. Delete → inline "Delete this task? Yes / No" (no browser dialog). User-added cards show a `User-added` pill and an optional source phrase input; they're never grounding-checked.
+PRD ref: `prd.md > Task Cards`, `prd.md > Editing Tasks`, `prd.md > Deleting Tasks`, `prd.md > Adding Tasks`.
+
+### Frontend: BlockersSection (`src/components/BlockersSection.tsx`)
+Lists every task with `blockedBy` entries or a `blockerNote`: "<task> ← blocked by <task/note>". Display-only (dependency editing is deferred).
+PRD ref: `prd.md > Blockers & Dependencies Section`.
+
+### Frontend: OpenQuestions (`src/components/OpenQuestions.tsx`)
+Each question is editable text plus a **Resolve** toggle. Resolved questions are struck through and marked "Resolved."
+PRD ref: `prd.md > Open Questions Section`.
+
+### Frontend: Markdown Export (`src/exportMarkdown.ts`)
+A pure function `toMarkdown(plan) → string` plus a download helper (Blob + temporary link, file `action-plan.md`). Output:
+```
+# Action Plan
+
+## Tasks
+- [ ] Build auth API — Owner: Mia — Deadline: by Fri 12th
+  - Source: "Mia: auth API by Fri 12th"
+- [ ] Finish onboarding feature — Owner: Unassigned — Deadline: Deadline not specified
+  - Source: "let's finish this soon"
+- [ ] Write release notes — Owner: Sam (user-provided) — Deadline: … — User-added
+  - ⚠ Verification warning: Deadline not found in source phrase
+
+## Blockers & Dependencies
+- Fix login bug ← blocked by: Build auth API
+
+## Open Questions
+- [ ] Who owns the release notes?
+- [x] Do we support SSO? (Resolved)
+```
+Only data from the current plan is written; nothing is generated.
+PRD ref: `prd.md > Exporting the Checklist`.
+
+## Data Model
+
+**Qwen output, validated by Pydantic (`Extraction`):**
+```python
+class ExtractedTask(BaseModel):
+    id: str                       # e.g. "t1", used for blocked_by references
+    title: str                    # min_length=1
+    owner: str | None
+    deadline: str | None          # exact wording from the notes ("by Friday", "next week"); never reworded or converted to a date
+    deadline_ambiguous: bool = False
+    source_phrase: str            # min_length=1
+    blocked_by: list[str] = []    # task ids
+    blocker_note: str | None = None   # a blocker that isn't a task
+
+class OpenQuestion(BaseModel):
+    text: str
+
+class Extraction(BaseModel):
+    tasks: list[ExtractedTask]
+    open_questions: list[OpenQuestion]
+```
+**API response (`OrganizeResponse`):** `{ mode: "live" | "sample", tasks: [ExtractedTask + warnings: list[str]], open_questions }`. Unknown `blocked_by` ids are dropped with a warning added.
+
+**Frontend state (`src/types.ts`):**
+```ts
+type Origin = "ai" | "user";
+interface Task {
+  id: string; title: string;
+  owner: string | null; ownerOrigin: Origin;
+  deadline: string | null; deadlineOrigin: Origin; deadlineAmbiguous: boolean;
+  sourcePhrase: string | null;   // null allowed only for user-added
+  blockedBy: string[]; blockerNote: string | null;
+  origin: Origin;                // "user" = User-added
+  warnings: string[];
+}
+interface Question { id: string; text: string; resolved: boolean; }
+interface Plan { tasks: Task[]; questions: Question[]; mode: "live" | "sample"; }
+```
+**Where it lives:** in React state only. It updates through card and question handlers. Leaving or reloading the page loses it, which is intended (`prd.md > States and Boundaries`). The API key lives only in `backend/.env`.
+
+## File Structure
+```
+C2C/
+├── backend/
+│   ├── app/
+│   │   ├── main.py               # FastAPI app: /api/organize, /api/health
+│   │   ├── extract.py            # Qwen call, prompt, one retry, sample mode
+│   │   ├── schemas.py            # Pydantic models (schema check)
+│   │   ├── grounding.py          # normalization + grounding check
+│   │   └── sample_response.json  # saved Qwen-style output for demo/notes.txt (labeled sample)
+│   ├── tests/
+│   │   ├── test_grounding.py     # matching rules: case, spaces, quotes pass; paraphrase fails
+│   │   └── test_schemas.py       # bad/missing fields rejected; sample passes
+│   ├── requirements.txt          # fastapi, uvicorn, openai, python-dotenv, pytest
+│   └── .env.example              # DASHSCOPE_API_KEY=, QWEN_BASE_URL=, QWEN_MODEL=
+├── frontend/                     # Vite react-ts scaffold
+│   ├── src/
+│   │   ├── App.tsx               # state + two-column layout
+│   │   ├── api.ts                # organize(notes) fetch wrapper
+│   │   ├── types.ts              # Task, Question, Plan
+│   │   ├── exportMarkdown.ts     # toMarkdown + download
+│   │   ├── exportMarkdown.test.ts
+│   │   ├── styles.css            # color variables + layout
+│   │   └── components/
+│   │       ├── NotesPanel.tsx
+│   │       ├── ResultsPanel.tsx
+│   │       ├── EmptyState.tsx
+│   │       ├── TaskCard.tsx
+│   │       ├── BlockersSection.tsx
+│   │       └── OpenQuestions.tsx
+│   └── vite.config.ts            # proxy /api → :8000
+├── demo/
+│   ├── notes.txt                 # realistic dev-team planning notes (the demo)
+│   └── ambiguity-test.txt        # notes designed to trigger warnings/flags
+├── devpost/                      # planning docs
+├── .gitignore                    # already ignores .env, learner profile
+└── README.md                     # what it is + run steps
+```
+
+## External Services and Dependencies
+**Qwen via Alibaba Cloud Model Studio** (OpenAI-compatible mode)
+- Base URL (international): `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. Mainland China accounts use `https://dashscope.aliyuncs.com/compatible-mode/v1`. **Keys are region-specific.**
+- Call: `POST {base}/chat/completions` through `openai.OpenAI(api_key=..., base_url=...)`, with `model` (default `qwen-plus`; verify), `messages`, `response_format={"type":"json_object"}`, `temperature=0`.
+- Response: `choices[0].message.content` is a JSON string → `Extraction`.
+- **Limitation:** JSON mode only, with no schema enforcement on Qwen's side. That's why the Pydantic check exists.
+- Auth: the `DASHSCOPE_API_KEY` env var, backend only.
+- Cost and rate limits: not verified. New Model Studio accounts typically include free trial quota; check the console. The demo makes only a handful of calls.
+- Docs: https://www.alibabacloud.com/help/en/model-studio/ · third-party references used: https://genkit.dev/docs/integrations/dashscope/, https://docs.api7.ai/ai-gateway/providers/qwen
+
+**Key setup (non-blocking):** create a Model Studio account → API key in the console → paste it into `backend/.env`. Never paste it in chat. Until then, sample mode works.
+
+## Important Failure Modes
+- **Qwen returns malformed or off-schema JSON** → one automatic retry → if it fails again, an error message with **Retry**; the notes are kept.
+- **Network error, bad key, or wrong region** → 502 → the same error UI. The backend logs the real reason in the terminal. The UI message mentions checking the key/region in `.env`.
+- **Qwen paraphrases a source phrase or invents a deadline** → **no retry**; a `Needs verification` warning on the card, and the task stays visible.
+- **No key set** → sample mode with a visible badge. Pasting non-demo notes in sample mode produces warnings, which is honest behavior.
+
+## What Was Simplified and Why
+- **Sample mode** instead of requiring a working key from the start. It removes the key as a blocker; grounding still runs, so the core idea isn't faked. Live mode is the real demo once the key works.
+- **One endpoint, no database:** session-only state, per `prd.md > States and Boundaries`.
+- **Whole-response failure** instead of rescuing partial results (learner's choice). It's simpler and never shows half-checked data. A fuller version would validate per item and keep the good ones.
+- **Exact-substring grounding** with three normalizations instead of fuzzy matching (learner's choice). It's explainable and testable. Fuzzy matching would need thresholds and would blur "close enough" into "made up."
+- **Display-only dependencies, no undo** (deferred in the PRD).
+
+## Decisions and Open Issues
+**Learner decisions:**
+- React + TypeScript frontend and FastAPI backend: familiar tools, so the effort goes into validation.
+- Qwen via Alibaba Cloud Model Studio; the key lives in `backend/.env`, never in the frontend; the rest of the app must not be blocked on the key.
+- Grounding matching rules: ignore capitalization, repeated whitespace, and straight/curly quotes; otherwise require a contiguous match; no paraphrases; unmatched → warning, not hidden; kept separate from the Pydantic schema check.
+- Owners and deadlines are grounded against their task's source phrase (agreed recommendation).
+- Malformed JSON or a schema failure gets one automatic retry, then fails the whole response (agreed recommendation; tradeoff: a single bad task discards a good response). Grounding failures never retry; they show as warnings (learner clarification).
+- Deadlines are kept exactly as worded in the notes, including relative dates, and checked against the source phrase without conversion (learner clarification).
+
+**Derived implementation details (agent):** Vite proxy; plain CSS; sample mode as the no-key path (proposed and agreed in principle); inline delete confirmation; edited owner/deadline clears that field's warning; user-added tasks aren't grounding-checked; `deadline_ambiguous` field for "genuinely ambiguous" stated deadlines.
+
+**Learning unknown — how strict should "verified" be?** This came out of the learner's goal of validating AI output. It was clarified by learning that Qwen offers JSON mode but no schema enforcement, and by the learner defining exact-contiguous matching with three normalizations. **To check during the build:** `test_grounding.py` proves that case, whitespace, and curly-quote variants pass, and that a paraphrase, a missing word, or a reordered phrase fails. Then a live run on `demo/ambiguity-test.txt` shows how often real Qwen output trips the check.
+
+**Open, verify early in the build:** the Qwen base URL and region for the learner's account, the model name (`qwen-plus`), JSON-mode support, and the backend Python environment (resolved: 3.12). No open questions remain from `prd.md`.

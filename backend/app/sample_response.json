@@ -1,0 +1,78 @@
+{
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Finish the auth API (token refresh)",
+      "owner": "Mia",
+      "deadline": "by Friday",
+      "deadline_ambiguous": false,
+      "source_phrase": "Mia will finish the auth API by Friday",
+      "blocked_by": [],
+      "blocker_note": null
+    },
+    {
+      "id": "t2",
+      "title": "Fix the Android login bug",
+      "owner": "Raj",
+      "deadline": null,
+      "deadline_ambiguous": false,
+      "source_phrase": "Raj can't fix the login bug until the auth API is merged",
+      "blocked_by": ["t1"],
+      "blocker_note": null
+    },
+    {
+      "id": "t3",
+      "title": "Update the onboarding screens",
+      "owner": "Priya",
+      "deadline": "by next Wednesday",
+      "deadline_ambiguous": false,
+      "source_phrase": "Priya to update the onboarding screens by next Wednesday",
+      "blocked_by": [],
+      "blocker_note": "Needs final copy from marketing"
+    },
+    {
+      "id": "t4",
+      "title": "Write the 2.4 release notes",
+      "owner": null,
+      "deadline": null,
+      "deadline_ambiguous": false,
+      "source_phrase": "someone should write the release notes for 2.4",
+      "blocked_by": [],
+      "blocker_note": null
+    },
+    {
+      "id": "t5",
+      "title": "Finish dark mode",
+      "owner": null,
+      "deadline": null,
+      "deadline_ambiguous": false,
+      "source_phrase": "dark mode: let's finish this soon",
+      "blocked_by": [],
+      "blocker_note": null
+    },
+    {
+      "id": "t6",
+      "title": "Set up crash reporting in staging",
+      "owner": "Tom",
+      "deadline": "by end of sprint",
+      "deadline_ambiguous": true,
+      "source_phrase": "Tom will set up crash reporting in staging by end of sprint",
+      "blocked_by": [],
+      "blocker_note": null
+    },
+    {
+      "id": "t7",
+      "title": "Look into the flaky CI pipeline",
+      "owner": "Raj",
+      "deadline": null,
+      "deadline_ambiguous": false,
+      "source_phrase": "Raj mentioned the CI pipeline is flaky again, will look into it when he can",
+      "blocked_by": [],
+      "blocker_note": null
+    }
+  ],
+  "open_questions": [
+    { "text": "Do we support SSO for the enterprise pilot? (Need to ask Sam)" },
+    { "text": "Is the push notification redesign parked until after the pilot? Not decided." }
+  ]
+}

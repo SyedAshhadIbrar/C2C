@@ -1,0 +1,12 @@
+Sprint planning — Tues, mobile app team
+present: Mia, Raj, Priya, Tom (Sam out sick)
+
+- Mia will finish the auth API by Friday. she said it's mostly done, just token refresh left
+- login bug on Android still open... Raj can't fix the login bug until the auth API is merged
+- Priya to update the onboarding screens by next Wednesday, needs final copy from marketing
+- someone should write the release notes for 2.4
+- dark mode: let's finish this soon, people keep asking for it
+- Tom will set up crash reporting in staging by end of sprint
+- do we support SSO for the enterprise pilot? nobody knew, need to ask Sam
+- push notification redesign — parked until after the pilot?? not decided
+- Raj mentioned the CI pipeline is flaky again, will look into it when he can

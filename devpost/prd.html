@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaos to Clarity PRD</title>
+<!-- Companion to prd.md; prd.md is canonical. -->
+<style>
+  :root {
+    --bg: #f7f5f0; --card: #ffffff; --ink: #2a2b2e; --muted: #6a6d72; --line: #e2ddd3;
+    --accent: #3f8a7e; --accent-bg: #e6f2ef; --warn: #a8640c; --warn-bg: #fdf1dc; --err: #b03a2e; --err-bg: #fbe9e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18191b; --card: #222326; --ink: #ececec; --muted: #a3a6ab; --line: #35373c;
+      --accent: #7cc4b6; --accent-bg: #1f3330; --warn: #f2b45c; --warn-bg: #3a2e1a; --err: #f08a7e; --err-bg: #3a2120;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+  .status { display: inline-block; font-size: 13px; padding: 2px 10px; border-radius: 99px; background: var(--warn-bg); color: var(--warn); margin: 0 0 8px; }
+  h1 { font-size: 32px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); font-size: 17px; margin: 0 0 24px; }
+  h2 { font-size: 20px; margin: 36px 0 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .grow { border-left: 4px solid var(--accent); }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--ink); font: 13px system-ui, sans-serif; }
+  svg .sub { fill: var(--muted); font-size: 11px; }
+  svg rect.box { fill: var(--card); stroke: var(--line); }
+  svg rect.pane { fill: var(--bg); stroke: var(--line); }
+  svg rect.t { fill: var(--card); stroke: var(--line); }
+  svg rect.amber { fill: var(--warn-bg); stroke: var(--warn); }
+  svg line, svg path.l { stroke: var(--muted); fill: none; }
+  .steps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .steps button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  .steps button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #panel h3 { margin: 0 0 6px; font-size: 17px; }
+  #panel ul { margin: 6px 0; padding-left: 20px; }
+  .crit { list-style: none; padding-left: 0 !important; }
+  .crit li::before { content: "☐ "; color: var(--accent); }
+  .lbl { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 4px; white-space: nowrap; }
+  .amberl { background: var(--warn-bg); color: var(--warn); }
+  .tealx { background: var(--accent-bg); color: var(--accent); }
+  .errl { background: var(--err-bg); color: var(--err); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .state h3 { margin: 0 0 4px; font-size: 15px; }
+  .state p { margin: 0; font-size: 14px; color: var(--muted); }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
+  summary { cursor: pointer; padding: 14px 18px; font-weight: 600; }
+  details > div { padding: 0 18px 14px; }
+  .q { border-left: 4px solid var(--warn); }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .sw { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .sw i { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--line); display: inline-block; }
+</style>
+</head>
+<body>
+<main>
+  <p class="status">status: approved</p>
+  <h1>Chaos to Clarity: Product Requirements</h1>
+  <p class="lede">One screen. Messy planning notes in, a verifiable, editable action plan out. Owners, deadlines, and answers are never invented.</p>
+
+  <div class="card grow">
+    <b>Scope → PRD.</b> Scope said “users can review and edit the extracted tasks.” Now we know exactly what that means: edit the title, owner, and deadline on the card; user values are marked <span class="lbl tealx">user-provided</span>; delete with confirmation; <span class="lbl tealx">User-added</span> tasks; questions can be resolved; and AI output that doesn't match the notes is shown with a <span class="lbl amberl">verification warning</span>.
+  </div>
+
+  <h2>The screen</h2>
+  <div class="card">
+    <svg viewBox="0 0 800 300" role="img" aria-label="Two-column layout: notes and Organize Notes button on the left; task cards, Blockers and Dependencies, and Open Questions sections on the right.">
+      <rect class="pane" x="10" y="10" width="300" height="280" rx="10"/>
+      <text x="30" y="38">Notes (always visible)</text>
+      <rect class="t" x="30" y="52" width="260" height="170" rx="6"/>
+      <text class="sub" x="44" y="76">Mia: auth API by Fri 12th</text>
+      <text class="sub" x="44" y="96">login bug blocked on auth…</text>
+      <text class="sub" x="44" y="116">who owns the release notes?</text>
+      <text class="sub" x="44" y="136">let's finish this soon</text>
+      <rect x="30" y="236" width="140" height="36" rx="8" style="fill:var(--accent)"/>
+      <text x="100" y="259" text-anchor="middle" style="fill:#fff">Organize Notes</text>
+      <rect class="pane" x="330" y="10" width="460" height="280" rx="10"/>
+      <text x="350" y="38">Results</text>
+      <text class="sub" x="770" y="38" text-anchor="end">+ Add task · Export .md</text>
+      <rect class="t" x="350" y="52" width="205" height="96" rx="6"/>
+      <text x="362" y="72">Build auth API</text>
+      <text class="sub" x="362" y="90">Owner: Mia · Deadline: Fri 12th</text>
+      <text class="sub" x="362" y="108">“Mia: auth API by Fri 12th”</text>
+      <rect class="amber" x="570" y="52" width="205" height="96" rx="6"/>
+      <text x="582" y="72">Finish feature</text>
+      <text class="sub" x="582" y="90">Unassigned · Deadline not specified</text>
+      <text class="sub" x="582" y="108">“let's finish this soon”</text>
+      <text class="sub" x="582" y="128" style="fill:var(--warn)">→ clarify deadline</text>
+      <rect class="t" x="350" y="160" width="425" height="54" rx="6"/>
+      <text x="362" y="182">Blockers &amp; Dependencies</text>
+      <text class="sub" x="362" y="200">Login bug ← blocked by auth API</text>
+      <rect class="t" x="350" y="224" width="425" height="54" rx="6"/>
+      <text x="362" y="246">Open Questions</text>
+      <text class="sub" x="362" y="264">Who owns the release notes? (unknown, not answered)</text>
+      <line x1="290" y1="136" x2="568" y2="108" stroke-dasharray="3 4"/>
+    </svg>
+    <p style="margin:8px 0 0;font-size:13px;color:var(--muted)">Illustrative only. The dashed line shows each card tracing back to its source phrase in the notes.</p>
+  </div>
+
+  <h2>The journey, step by step</h2>
+  <div class="card">
+    <div class="steps" role="group" aria-label="Journey steps"></div>
+    <div id="panel" aria-live="polite"></div>
+  </div>
+
+  <h2>What-ifs: states</h2>
+  <div class="grid">
+    <div class="card state"><h3>First use</h3><p>The right side explains what will appear: tasks, blockers, open questions.</p></div>
+    <div class="card state"><h3>Empty notes</h3><p>A clear message: paste notes first. No AI call.</p></div>
+    <div class="card state"><h3>No actionable tasks</h3><p>A message that no tasks were found. Any open questions still appear.</p></div>
+    <div class="card state"><h3><span class="lbl errl">AI failure</span></h3><p>A clear error with retry. The pasted notes are kept.</p></div>
+    <div class="card state"><h3><span class="lbl amberl">Unsupported output</span></h3><p>The source phrase isn't in the notes, or the deadline isn't in the source → shown with a verification warning.</p></div>
+    <div class="card state"><h3>Persistence</h3><p>None. Session only; reloading clears it.</p></div>
+  </div>
+
+  <h2>Look and feel</h2>
+  <div class="card">
+    Calm, organized, trustworthy: a cluttered desk becoming an organized workspace. Modern, readable sans-serif with an obvious hierarchy. Spacious two columns, subtle borders, compact cards. Motion is subtle and fast.
+    <div class="swatches">
+      <span class="sw"><i style="background:#f7f5f0"></i>warm off-white</span>
+      <span class="sw"><i style="background:#fff"></i>white cards</span>
+      <span class="sw"><i style="background:#2a2b2e"></i>charcoal text</span>
+      <span class="sw"><i style="background:#3f8a7e"></i>teal/sage accent</span>
+      <span class="sw"><i style="background:#e0a03a"></i>amber: missing/warning</span>
+      <span class="sw"><i style="background:#b03a2e"></i>red: errors only</span>
+    </div>
+    <p style="margin:10px 0 0;font-size:14px;color:var(--muted)">Avoid: AI gradients, heavy glassmorphism, distracting animation, too many colors, crowded dashboards. (Swatches are illustrative; exact values are set in the spec.)</p>
+  </div>
+
+  <h2>Boundary</h2>
+  <details open><summary>Building now</summary><div>Paste → Organize Notes → cards (source phrase, owner/deadline or explicit gaps, blocked status) + Blockers &amp; Dependencies + Open Questions → verification warnings → edit title/owner/deadline, resolve/edit questions, delete with confirmation, Add task → export the edited plan as Markdown. Plus empty, no-tasks, and error states, one demo note set, and an ambiguity test.</div></details>
+  <details><summary>Deferred</summary><div><ul>
+    <li><b>Dependency editing:</b> not needed to show reliability; display-only for now</li>
+    <li><b>Undo for delete:</b> confirmation is enough</li>
+    <li><b>Saved history, accounts, integrations, collaboration, deployment:</b> excluded by scope</li>
+  </ul></div></details>
+  <details><summary>Non-goals</summary><div><ul>
+    <li>Inferring missing owners, deadlines, or answers</li>
+    <li>Multiple demo scenarios</li>
+    <li>Decoration that competes with readability</li>
+  </ul></div></details>
+
+  <h2>Resolved decisions</h2>
+  <div class="card grow"><ul style="margin:0;padding-left:20px">
+    <li><b>Relative dates:</b> “by Friday” and “next week” count as stated deadlines and are shown <b>exactly as written</b>, never converted (the meeting date and timezone are unknown). Genuinely ambiguous wording → <span class="lbl amberl">flag to clarify</span>.</li>
+    <li><b>Export:</b> the full edited plan: task checklist (owner, deadline, source phrase) + Blockers &amp; Dependencies + Open Questions, with every label and warning kept. Nothing added that wasn't in the notes or entered by the user.</li>
+  </ul></div>
+  <p style="color:var(--muted);font-size:14px">No open questions block 4-spec.</p>
+</main>
+<script>
+  const steps = [
+    ["Open", "One screen: notes on the left, an empty state on the right explaining what will appear.",
+      ["The empty state names tasks, blockers, and open questions"]],
+    ["Organize", "Paste the notes and click Organize Notes. One AI extraction runs, with visible progress.",
+      ["Task cards, Blockers & Dependencies, and Open Questions appear", "The notes stay visible on the left", "Empty notes → a message, no AI call"]],
+    ["Verify", "Each card: title → owner → deadline → source phrase → blocked status.",
+      ["Every extracted card shows a source phrase", "“let's finish this soon” → <span class='lbl amberl'>Deadline not specified</span> + clarify prompt", "No named owner → Unassigned", "“by Friday” shows exactly as written, with no calendar date", "Unsupported phrase/deadline → <span class='lbl amberl'>verification warning</span>", "The blocked bug shows on its card and in the section"]],
+    ["Edit", "Edit the title, owner, and deadline on the card. Resolve or reword questions. Delete with confirmation. Add task.",
+      ["Adding a date removes the amber flag; the date shows as <span class='lbl tealx'>user-provided</span>; the source phrase stays", "Delete asks for confirmation first", "New cards show <span class='lbl tealx'>User-added</span>", "Resolving a question visibly changes its state"]],
+    ["Export", "Download Markdown of the current, edited full plan: task checklist with owner, deadline, and source phrase; Blockers & Dependencies; Open Questions.",
+      ["The exported file reflects edits", "Readable <code>- [ ]</code> tasks plus the Blockers and Open Questions sections", "Labels and warnings survive: Unassigned, Deadline not specified, User-added, verification warnings", "Nothing appears that wasn't in the notes or entered by the user"]]
+  ];
+  const bar = document.querySelector(".steps"), panel = document.getElementById("panel");
+  steps.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = (i + 1) + ". " + s[0];
+    b.onclick = () => show(i);
+    bar.appendChild(b);
+  });
+  function show(i) {
+    const [t, d, c] = steps[i];
+    panel.innerHTML = "<h3>" + t + "</h3><p style='margin:0 0 8px'>" + d + "</p><b style='font-size:14px'>How we'll know it works</b><ul class='crit'>" + c.map(x => "<li>" + x + "</li>").join("") + "</ul>";
+    bar.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-pressed", i === j));
+  }
+  show(0);
+</script>
+</body>
+</html>
