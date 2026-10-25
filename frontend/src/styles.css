@@ -68,7 +68,7 @@ button, textarea, input { font: inherit; color: inherit; }
 @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .task-card { animation: none; } }
 
-.task-title { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+.task-title { margin: 0 0 8px; flex: 1; font-size: 16px; font-weight: 600; }
 .task-fields { display: grid; grid-template-columns: 80px 1fr; gap: 4px 12px; margin: 0 0 10px; font-size: 14px; }
 .task-fields dt { color: var(--muted); }
 .task-fields dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -89,3 +89,11 @@ button, textarea, input { font: inherit; color: inherit; }
 .pill-warn { background: var(--warn-bg); color: var(--warn); }
 /* red is reserved for errors, so blocked uses a neutral outline */
 .pill-blocked { background: transparent; color: var(--ink); border: 1px solid var(--muted); }
+
+/* Verification warnings (grounding check) */
+.task-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.task-card.needs-verify { border-color: var(--warn); }
+.warnings { margin: 0 0 10px; padding: 8px 10px; list-style: none; border-radius: 6px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
+.warnings li + li { margin-top: 2px; }
+.source-unverified { border-left-color: var(--warn); }
+.source-unverified .source-label { color: var(--warn); }

@@ -19,7 +19,7 @@ Build mode: learn (learner asked to have each slice explained and to test it the
   Learner check: Start both servers (README), open http://localhost:5173, paste `demo/notes.txt`, click Organize Notes, and look at the "let's finish this soon" card. Then clear the box and click again. Does the layout feel like the calm workspace you described?
   Commit: `Add notes-to-task-cards flow with sample mode and schema check`
 
-- [ ] **2. Unsupported extractions show "Needs verification" warnings**
+- [x] **2. Unsupported extractions show "Needs verification" warnings**
   Becomes usable: Every task is checked against the notes using your matching rules. A source phrase that isn't a contiguous match (after ignoring case, extra spaces, and quote style), or an owner/deadline that isn't inside its source phrase, shows an amber "Needs verification" warning on the card. The task is never hidden.
   Why now: This is the unique kernel and your learning goal. It goes in as soon as there's a screen to show it on, before any live AI output exists to trust.
   PRD ref: `prd.md > Verification Warnings`, `prd.md > Task Cards`

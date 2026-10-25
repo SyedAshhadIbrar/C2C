@@ -9,10 +9,14 @@ interface Props {
 export default function TaskCard({ task, titleById, index }: Props) {
   const needsClarify = task.deadline === null || task.deadlineAmbiguous
   const blockers = task.blockedBy.map((id) => titleById.get(id) ?? id)
+  const sourceMissing = task.warnings.some((w) => w.includes('source phrase not found'))
 
   return (
-    <article className="task-card" style={{ animationDelay: `${index * 30}ms` }}>
-      <h3 className="task-title">{task.title}</h3>
+    <article className={`task-card${task.warnings.length ? ' needs-verify' : ''}`} style={{ animationDelay: `${index * 30}ms` }}>
+      <div className="task-head">
+        <h3 className="task-title">{task.title}</h3>
+        {task.warnings.length > 0 && <span className="pill pill-warn">Needs verification</span>}
+      </div>
 
       <dl className="task-fields">
         <dt>Owner</dt>
@@ -29,9 +33,18 @@ export default function TaskCard({ task, titleById, index }: Props) {
         </dd>
       </dl>
 
+      {task.warnings.length > 0 && (
+        <ul className="warnings" aria-label="Verification warnings">
+          {task.warnings.map((w) => (
+            <li key={w}>⚠ {w.replace(/^Needs verification: /, '')} — check it against your notes</li>
+          ))}
+        </ul>
+      )}
+
       {task.sourcePhrase && (
-        <blockquote className="source">
-          <span className="source-label">From your notes</span>“{task.sourcePhrase}”
+        <blockquote className={`source${sourceMissing ? ' source-unverified' : ''}`}>
+          <span className="source-label">{sourceMissing ? 'Quoted by AI — not found in your notes' : 'From your notes'}</span>
+          “{task.sourcePhrase}”
         </blockquote>
       )}
 
