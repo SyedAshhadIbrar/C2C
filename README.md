@@ -6,21 +6,27 @@ Paste messy meeting notes and get an editable action plan: tasks, owners, deadli
 
 Requires Node 18+ and [uv](https://docs.astral.sh/uv/) (backend uses Python 3.12 or 3.13).
 
-**Backend** (terminal 1):
+**One-time setup:**
 ```
 cd backend
 uv venv --python 3.12
 uv pip install -r requirements.txt
 copy .env.example .env        # add DASHSCOPE_API_KEY, or leave blank for sample mode
-.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+cd ..\frontend
+npm install
 ```
 
-**Frontend** (terminal 2):
+**Every time — start both** (two terminals; the app needs both running):
 ```
+# terminal 1
+cd backend
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+
+# terminal 2
 cd frontend
-npm install
 npm run dev
 ```
+If Organize Notes says it can't reach the backend, terminal 1 isn't running.
 Open http://localhost:5173 and paste the contents of `demo/notes.txt`.
 
 **Sample mode:** with no API key set, the backend returns a saved, labeled sample response for `demo/notes.txt` instead of calling Qwen.

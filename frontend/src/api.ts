@@ -27,7 +27,11 @@ export async function organize(notes: string): Promise<Plan> {
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
-    throw new Error(body?.detail ?? `Request failed (${res.status})`)
+    if (body?.detail) throw new Error(body.detail)
+    // An empty 502/504 comes from the Vite proxy itself: the backend isn't reachable.
+    if (res.status === 502 || res.status === 504)
+      throw new Error("Can't reach the backend on localhost:8000. Is it running? See README → Run it locally.")
+    throw new Error(`Request failed (${res.status})`)
   }
   const data: ApiResponse = await res.json()
   return {
