@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { organize } from './api'
 import NotesPanel from './components/NotesPanel'
 import ResultsPanel from './components/ResultsPanel'
+import { updateQuestion } from './plan'
 import type { Plan } from './types'
 
 export type Status = 'idle' | 'loading' | 'error' | 'done'
@@ -31,7 +32,13 @@ export default function App() {
       </header>
       <main className="workspace">
         <NotesPanel notes={notes} onChange={setNotes} onOrganize={handleOrganize} loading={status === 'loading'} />
-        <ResultsPanel status={status} plan={plan} error={error} onRetry={handleOrganize} />
+        <ResultsPanel
+          status={status}
+          plan={plan}
+          error={error}
+          onRetry={handleOrganize}
+          onQuestionChange={(id, patch) => setPlan((p) => p && { ...p, questions: updateQuestion(p.questions, id, patch) })}
+        />
       </main>
     </div>
   )

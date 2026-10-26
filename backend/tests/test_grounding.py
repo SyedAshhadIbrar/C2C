@@ -115,10 +115,26 @@ def test_unsupported_tasks_are_kept():
     assert checked[1].warnings == [SOURCE_NOT_FOUND, OWNER_NOT_FOUND, DEADLINE_NOT_FOUND]
 
 
-def test_unknown_dependency_dropped_with_warning():
+def test_unknown_dependency_preserved_with_warning():
     t = check_tasks([task("Mia will finish the auth API by Friday", blocked_by=["t9"])], NOTES)[0]
-    assert t.blocked_by == []
-    assert any("t9" in w for w in t.warnings)
+    assert t.blocked_by == ["t9"]  # kept so the UI can show it, never silently dropped
+    assert t.warnings == ["Needs verification: depends on unknown task 't9'"]
+
+
+def test_known_dependency_kept_without_warning():
+    tasks = [task("Mia will finish the auth API by Friday", id="t1"),
+             task("Raj can't fix the login bug until the auth API is merged", id="t2", blocked_by=["t1"])]
+    t2 = check_tasks(tasks, NOTES)[1]
+    assert t2.blocked_by == ["t1"] and t2.warnings == []
+
+
+def test_mixed_and_self_dependencies_preserved_in_order():
+    tasks = [task("Mia will finish the auth API by Friday", id="t1"),
+             task("Raj can't fix the login bug until the auth API is merged", id="t2", blocked_by=["t9", "t1", "t2"])]
+    t2 = check_tasks(tasks, NOTES)[1]
+    assert t2.blocked_by == ["t9", "t1", "t2"]
+    assert t2.warnings == ["Needs verification: depends on unknown task 't9'",
+                           "Needs verification: depends on itself ('t2')"]
 
 
 # --- documented limitation of strict substring matching (approved spec) ---

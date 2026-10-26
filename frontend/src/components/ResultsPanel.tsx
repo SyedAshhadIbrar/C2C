@@ -1,6 +1,8 @@
 import type { Status } from '../App'
-import type { Plan } from '../types'
+import type { Plan, Question } from '../types'
+import BlockersSection from './BlockersSection'
 import EmptyState from './EmptyState'
+import OpenQuestions from './OpenQuestions'
 import TaskCard from './TaskCard'
 
 interface Props {
@@ -8,11 +10,10 @@ interface Props {
   plan: Plan | null
   error: string
   onRetry: () => void
+  onQuestionChange: (id: string, patch: Partial<Omit<Question, 'id'>>) => void
 }
 
-export default function ResultsPanel({ status, plan, error, onRetry }: Props) {
-  const titleById = new Map(plan?.tasks.map((t) => [t.id, t.title]))
-
+export default function ResultsPanel({ status, plan, error, onRetry, onQuestionChange }: Props) {
   return (
     <section className="panel results-panel" aria-label="Organized results" aria-busy={status === 'loading'}>
       {status === 'idle' && <EmptyState />}
@@ -33,11 +34,17 @@ export default function ResultsPanel({ status, plan, error, onRetry }: Props) {
               </span>
             )}
           </div>
-          <div className="task-list">
-            {plan.tasks.map((t, i) => (
-              <TaskCard key={t.id} task={t} titleById={titleById} index={i} />
-            ))}
-          </div>
+          {plan.tasks.length === 0 ? (
+            <p className="muted section-empty">No actionable tasks found in these notes.</p>
+          ) : (
+            <div className="task-list">
+              {plan.tasks.map((t, i) => (
+                <TaskCard key={t.id} task={t} tasks={plan.tasks} index={i} />
+              ))}
+            </div>
+          )}
+          <BlockersSection tasks={plan.tasks} />
+          <OpenQuestions questions={plan.questions} onChange={onQuestionChange} />
         </>
       )}
     </section>

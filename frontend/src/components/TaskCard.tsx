@@ -1,14 +1,15 @@
+import { dependenciesOf } from '../plan'
 import type { Task } from '../types'
 
 interface Props {
   task: Task
-  titleById: Map<string, string>
+  tasks: Task[]
   index: number
 }
 
-export default function TaskCard({ task, titleById, index }: Props) {
+export default function TaskCard({ task, tasks, index }: Props) {
   const needsClarify = task.deadline === null || task.deadlineAmbiguous
-  const blockers = task.blockedBy.map((id) => titleById.get(id) ?? id)
+  const blockers = dependenciesOf(task, tasks)
   const sourceMissing = task.warnings.some((w) => w.includes('source phrase not found'))
 
   return (
@@ -48,10 +49,15 @@ export default function TaskCard({ task, titleById, index }: Props) {
         </blockquote>
       )}
 
-      {(blockers.length > 0 || task.blockerNote) && (
+      {blockers.length > 0 && (
         <p className="blocked">
           <span className="pill pill-blocked">Blocked</span>
-          {[...blockers, ...(task.blockerNote ? [task.blockerNote] : [])].join(' · ')}
+          {blockers.map((d, i) => (
+            <span key={i} className={d.known ? 'dep' : 'dep dep-unknown'}>
+              {!d.known && '⚠ '}
+              {d.label}
+            </span>
+          ))}
         </p>
       )}
     </article>

@@ -151,11 +151,24 @@ Shows, in order: title → owner (or `Unassigned` pill) → deadline (or `Deadli
 PRD ref: `prd.md > Task Cards`, `prd.md > Editing Tasks`, `prd.md > Deleting Tasks`, `prd.md > Adding Tasks`.
 
 ### Frontend: BlockersSection (`src/components/BlockersSection.tsx`)
-Lists every task with `blockedBy` entries or a `blockerNote`: "<task> ← blocked by <task/note>". Display-only (dependency editing is deferred).
+Lists every task with `blockedBy` entries or a `blockerNote`: "<task> ← <what it waits on>". Shows "Nothing is blocked." when empty. Display-only (dependency editing is deferred).
+
+**Dependency display rules** (`dependenciesOf` in `src/plan.ts`, shared by this section and the task card so they always match), in the order the AI listed them:
+- **Known id** → the other task's title, as a plain chip.
+- **Unknown id** (no task with that id) → amber chip `⚠ Unknown task "<id>"`.
+- **Self-dependency** (a task listing its own id) → amber chip `⚠ Self-dependency: this task depends on itself`.
+- **Free-text blocker** (`blockerNote`) → plain chip after the task dependencies.
+
+Unknown and self references are **preserved and flagged, never silently removed**: the backend keeps them in `blocked_by` and adds a "Needs verification" warning (`depends on unknown task '<id>'` / `depends on itself ('<id>')`), and the UI shows the amber chip. They never hide a task: the task list isn't filtered by dependencies, and a task whose only dependency is unknown still gets a row here.
 PRD ref: `prd.md > Blockers & Dependencies Section`.
 
 ### Frontend: OpenQuestions (`src/components/OpenQuestions.tsx`)
-Each question is editable text plus a **Resolve** toggle. Resolved questions are struck through and marked "Resolved."
+Each question has editable wording plus a **Resolve / Reopen** toggle; the heading counts unresolved questions. Resolved questions are struck through, marked "Resolved", and their wording field is disabled (reopen to edit).
+Edit rules (`updateQuestion` in `src/plan.ts`, always an immutable update that leaves other questions untouched):
+- Wording is saved when the field loses focus or Enter is pressed, trimmed of surrounding whitespace.
+- Blank or whitespace-only wording is not saved; the existing text is kept and shown again.
+- Wording edits to a resolved question are ignored.
+- Edits live only in the current session (`prd.md > States and Boundaries`); re-running Organize Notes replaces them.
 PRD ref: `prd.md > Open Questions Section`.
 
 ### Frontend: Markdown Export (`src/exportMarkdown.ts`)
@@ -202,7 +215,7 @@ class Extraction(BaseModel):
     tasks: list[ExtractedTask]
     open_questions: list[OpenQuestion]
 ```
-**API response (`OrganizeResponse`):** `{ mode: "live" | "sample", tasks: [ExtractedTask + warnings: list[str]], open_questions }`. Unknown `blocked_by` ids are dropped with a warning added.
+**API response (`OrganizeResponse`):** `{ mode: "live" | "sample", tasks: [ExtractedTask + warnings: list[str]], open_questions }`. Unknown or self-referencing `blocked_by` ids are **kept** and get a "Needs verification" warning; the UI shows them as `Unknown task "<id>"` (changed in Slice 4; see `checklist.md > Revisions`).
 
 **Frontend state (`src/types.ts`):**
 ```ts

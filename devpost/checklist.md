@@ -39,7 +39,7 @@ Build mode: learn (learner asked to have each slice explained and to test it the
   Learner check: Put your key in `backend/.env` and restart the backend, organize the demo notes, and compare the live cards to the notes. If the key isn't ready yet, stop the backend and click Organize Notes to see the error and Retry.
   Commit: `Add live Gemini extraction with single retry and error state`
 
-- [ ] **4. Blockers & Dependencies and Open Questions sections**
+- [x] **4. Blockers & Dependencies and Open Questions sections**
   Becomes usable: Below the cards, a Blockers & Dependencies list shows "task ← blocked by" for every blocked task, and Open Questions lists unanswered questions with editable wording and a Resolve toggle. Notes with no tasks show "No actionable tasks found," with any questions still listed.
   Why now: These complete the "see the plan" half of the journey, so the edit and export slices work on the full plan shape.
   PRD ref: `prd.md > Blockers & Dependencies Section`, `prd.md > Open Questions Section`, `prd.md > States and Boundaries` (no actionable tasks)
@@ -99,3 +99,5 @@ Activity mode:
 - Re-applied the approved spec corrections (deadline wording, retry rule, Python version) to `spec.md`: an earlier write had updated only `spec.html`. Found during slice 1.
 - Documented the limitation of grounding's strict substring matching: `Friday`/`Fri` verify inside "by Friday" and `Mi` inside "Mia". Found while verifying Slice 2 against the learner's expectations. The learner chose to keep the approved spec's plain substring rule (no whole-word or lead-in-word rules) and record the limitation; see `spec.md > Backend: Grounding Check`.
 - Switched the AI provider from Qwen (Alibaba Cloud Model Studio) to Google Gemini via the official `google-genai` SDK, at the learner's request before Slice 3. `GEMINI_API_KEY`/`GEMINI_MODEL` replace the DashScope/Qwen variables; the schema check, single-retry rule, sample mode, and grounding check are unchanged. Gemini takes a JSON schema directly, but the reply is still validated by Pydantic.
+- Unresolved dependency ids are now kept and shown with a warning, instead of being dropped: the learner asked for unknown `blocked_by` ids to stay visible (Slice 4). `grounding.py` no longer removes them; the spec's data model was updated.
+- Added vitest in Slice 4 instead of Slice 6, to give the Slice 4 section logic (`src/plan.ts`) regression tests.

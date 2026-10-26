@@ -30,11 +30,14 @@ def check_task(task: ExtractedTask, notes_norm: str, known_ids: set[str]) -> Che
     if task.deadline is not None and normalize(task.deadline) not in phrase:
         warnings.append(DEADLINE_NOT_FOUND)
 
-    blocked_by = [i for i in task.blocked_by if i in known_ids and i != task.id]
-    for unknown in set(task.blocked_by) - set(blocked_by):
-        warnings.append(f"Needs verification: depends on unknown task '{unknown}'")
+    # Unresolved dependency ids are kept (the UI shows them) and flagged, never dropped.
+    for dep in task.blocked_by:
+        if dep == task.id:
+            warnings.append(f"Needs verification: depends on itself ('{dep}')")
+        elif dep not in known_ids:
+            warnings.append(f"Needs verification: depends on unknown task '{dep}'")
 
-    return CheckedTask(**task.model_dump(exclude={"blocked_by"}), blocked_by=blocked_by, warnings=warnings)
+    return CheckedTask(**task.model_dump(), warnings=warnings)
 
 
 def check_tasks(tasks: list[ExtractedTask], notes: str) -> list[CheckedTask]:

@@ -99,3 +99,21 @@ button, textarea, input { font: inherit; color: inherit; }
 .source-unverified .source-label { color: var(--warn); }
 .error-msg p { margin: 0 0 10px; }
 .btn-secondary { padding: 6px 14px; border: 1px solid var(--err); border-radius: 8px; background: var(--card); color: var(--err); font-weight: 600; cursor: pointer; }
+
+/* Blockers & Dependencies and Open Questions sections */
+.results-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+.section-empty { margin: 4px 0 0; font-size: 14px; }
+.blocker-list, .question-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.blocker-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; font-size: 14px; }
+.blocker-task { font-weight: 600; }
+.blocker-arrow { color: var(--muted); }
+.blocker-deps, .blocked { display: flex; flex-wrap: wrap; gap: 6px; }
+.dep { padding: 1px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 13px; }
+.dep-unknown { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.question { display: flex; align-items: center; gap: 8px; }
+.question-text { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 14px; }
+.question.resolved .question-text { text-decoration: line-through; color: var(--muted); }
+.pill-ok { background: var(--accent-bg); color: var(--accent); }
+.btn-ghost { padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.question-text:disabled { background: var(--bg); cursor: not-allowed; }
