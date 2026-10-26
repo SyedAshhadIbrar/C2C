@@ -114,11 +114,13 @@ Build mode: learn (learner asked to have each slice explained and to test it the
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after slice 2 (cards + verification warnings visible; feedback can still shape live extraction, editing, and export)
-- [ ] Final end-to-end check (learner-requested): organize the demo notes → verification warnings visible → edit a task (deadline/owner) → export Markdown matches the screen → error/Retry case (backend stopped or bad key) recovers without losing the notes
-- [ ] Final kick-the-tires exploration and feedback completed
+- [x] Early usable behavior explored — after slice 2 (cards + verification warnings visible; feedback can still shape live extraction, editing, and export). Learner tested Slice 2 and refined the grounding rules: kept strict substring matching and documented its limits.
+- [x] Final end-to-end check (learner-requested): organize the demo notes → verification warnings visible → edit a task (deadline/owner) → export Markdown matches the screen → error/Retry case (backend stopped or bad key) recovers without losing the notes. Learner ran it as part of the 6-section review below: all passed.
+- [x] Final kick-the-tires exploration and feedback completed. Learner ran the 6-section end-to-end review after Slice 6: (1) sample mode, (2) live Gemini + error/Retry, (3) grounding warnings and missing owner/deadline, (4) dependencies, blockers, and open questions, (5) edit/add/delete, (6) Markdown export after edits. **All six passed, no issues found.**
 
 ## Final Review
+
+Result: 6/6 review sections passed; no fixes or refinements requested, so no revision tasks were needed. Slices 1–6 committed and pushed (`5359103` … `81a26c0`).
 
 - [ ] Final review complete — feedback resolved and learner confirms ready to ship
 
