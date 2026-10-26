@@ -122,7 +122,7 @@ Build mode: learn (learner asked to have each slice explained and to test it the
 
 Result: 6/6 review sections passed; no fixes or refinements requested, so no revision tasks were needed. Slices 1–6 committed and pushed (`5359103` … `81a26c0`).
 
-- [ ] Final review complete — feedback resolved and learner confirms ready to ship
+- [x] Final review complete — feedback resolved and learner confirms ready to ship (learner confirmed: "it's ready to ship")
 
 ## Code Tour and App Map
 
