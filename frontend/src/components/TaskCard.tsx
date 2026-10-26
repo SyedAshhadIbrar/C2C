@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { dependenciesOf, titleError, type TaskEdit } from '../plan'
+import { badgesOf, dependenciesOf, sourceKind, titleError, type TaskEdit } from '../plan'
 import type { Task } from '../types'
 
 interface Props {
@@ -17,8 +17,8 @@ export default function TaskCard({ task, tasks, index, onEdit, onDelete }: Props
   const [confirmDelete, setConfirmDelete] = useState(false)
   const needsClarify = task.deadline === null || task.deadlineAmbiguous
   const blockers = dependenciesOf(task, tasks)
-  const sourceMissing = task.warnings.some((w) => w.includes('source phrase not found'))
-  const userAdded = task.origin === 'user'
+  const badges = badgesOf(task)
+  const source = sourceKind(task)
 
   return (
     <article className={`task-card${task.warnings.length ? ' needs-verify' : ''}`} style={{ animationDelay: `${index * 30}ms` }}>
@@ -36,8 +36,7 @@ export default function TaskCard({ task, tasks, index, onEdit, onDelete }: Props
         <>
           <div className="task-head">
             <h3 className="task-title">{task.title}</h3>
-            {userAdded && <Badge>User-added</Badge>}
-            {!userAdded && task.titleOrigin === 'user' && <Badge>User-edited</Badge>}
+            {badges.title && <Badge>{badges.title}</Badge>}
             {task.warnings.length > 0 && <span className="pill pill-warn">Needs verification</span>}
           </div>
 
@@ -45,13 +44,13 @@ export default function TaskCard({ task, tasks, index, onEdit, onDelete }: Props
             <dt>Owner</dt>
             <dd>
               {task.owner ?? <span className="pill pill-warn">Unassigned</span>}
-              {task.owner && task.ownerOrigin === 'user' && !userAdded && <Badge>User-provided</Badge>}
+              {badges.owner && <Badge>User-provided</Badge>}
             </dd>
 
             <dt>Deadline</dt>
             <dd>
               {task.deadline ?? <span className="pill pill-warn">Deadline not specified</span>}
-              {task.deadline && task.deadlineOrigin === 'user' && !userAdded && <Badge>User-provided</Badge>}
+              {badges.deadline && <Badge>User-provided</Badge>}
               {needsClarify && (
                 <span className="clarify">
                   {task.deadline === null ? 'Clarify the deadline' : 'Wording is unclear — clarify the deadline'}
@@ -70,14 +69,14 @@ export default function TaskCard({ task, tasks, index, onEdit, onDelete }: Props
         </ul>
       )}
 
-      {task.sourcePhrase &&
-        (userAdded ? (
+      {source &&
+        (source === 'user' ? (
           <blockquote className="source source-user">
             <span className="source-label">Source you entered — not checked against the notes</span>“{task.sourcePhrase}”
           </blockquote>
         ) : (
-          <blockquote className={`source${sourceMissing ? ' source-unverified' : ''}`}>
-            <span className="source-label">{sourceMissing ? 'Quoted by AI — not found in your notes' : 'From your notes'}</span>
+          <blockquote className={`source${source === 'unverified' ? ' source-unverified' : ''}`}>
+            <span className="source-label">{source === 'unverified' ? 'Quoted by AI — not found in your notes' : 'From your notes'}</span>
             “{task.sourcePhrase}”
           </blockquote>
         ))}

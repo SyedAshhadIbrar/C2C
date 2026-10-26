@@ -59,15 +59,58 @@ Build mode: learn (learner asked to have each slice explained and to test it the
   Learner check: Give the "let's finish this soon" task a deadline and an owner, delete one task, and add one the AI missed.
   Commit: `Add inline task editing, delete confirmation, and add task`
 
-- [ ] **6. Export the edited plan as Markdown**
-  Becomes usable: **Export** downloads `action-plan.md`: a task checklist with owner, deadline, and source phrase, then Blockers & Dependencies, then Open Questions, with every label and warning. It reflects the current edits and adds nothing else.
-  Why now: Export is the end of the journey and reads the plan that slices 1–5 shaped.
+- [x] **6. Export the edited plan as Markdown**
+  Becomes usable: **Export Markdown** downloads `action-plan.md` with the plan exactly as it currently exists:
+  - edited, user-added, and (absent) deleted tasks
+  - owner, deadline, source, warnings, and what each task is blocked by
+  - the Blockers & Dependencies section, including `⚠ Unknown task` and `⚠ Self-dependency`
+  - Open Questions with their resolved state
+  - every label and badge (Unassigned, Deadline not specified, User-added, User-edited, User-provided, Needs verification)
+
+  It adds and changes nothing.
+  Why now: Export is the end of the journey and reads the plan that Slices 1–5 shaped. It finishes the demo before the optional Slice 7.
   PRD ref: `prd.md > Exporting the Checklist`
   Spec ref: `spec.md > Frontend: Markdown Export (`src/exportMarkdown.ts`)`
-  Build: The pure `toMarkdown(plan)` plus a Blob download, the Export button, and `exportMarkdown.test.ts` (vitest).
-  Verify (mechanical): `npx vitest run` passes: labels (Unassigned, Deadline not specified, User-added, user-provided, warnings), sections, resolved questions as `[x]`, and edits reflected. `npm run build` passes. Clicking Export in the browser produces the file.
-  Learner check: Edit a task, click Export, and open `action-plan.md`. Does it match the screen, and is it something you'd actually use?
-  Commit: `Add Markdown export of the edited plan`
+  Build: `src/exportMarkdown.ts` (pure `toMarkdown(plan)` reusing `dependenciesOf` / `blockerRows`, Markdown escaping, and `downloadMarkdown`); the **Export Markdown** button in the `ResultsPanel` toolbar; `src/exportMarkdown.test.ts`.
+  Verify (mechanical):
+  - `npm test` (vitest) passes, covering:
+    - each label and badge
+    - each source label
+    - warnings
+    - unknown and self dependencies after a delete
+    - resolved questions as `[x]`
+    - edited, added, and deleted tasks reflected
+    - empty sections
+    - the sample-mode line
+    - escaping of `* _ [ ] < > \` and newlines
+    - that the plan isn't mutated
+    - that nothing is written that isn't in the plan
+  - `pytest` passes, and `npm run build` passes.
+  - In the browser: export after edits, open the file, and compare it with the screen.
+  Learner check: Edit a task, add one, delete one, resolve a question, click **Export Markdown**, and open `action-plan.md`. Does it match the screen exactly, and is it something you'd actually use?
+  Commit: `feat: add Markdown export of the edited plan`
+
+- [ ] **7. (Optional stretch) Contextual extraction with flagged, evidence-backed inference, plus evaluation**
+  Becomes usable:
+  - Messy multi-sentence notes yield implied tasks, owners resolved through pronouns or context, cross-sentence dependencies, and typed deadlines (explicit, relative, conditional, vague), each inferred item with an evidence quote and an **Inferred — confirm** badge.
+  - Ambiguous owners stay Unassigned or flagged.
+  - Decisions and Problems appear in their own minimal sections; Open Questions stays separate, and problems aren't blockers automatically.
+  - A fixed 10-case evaluation reports per-area metrics and hard safety gates.
+  Why now: Only after Slice 6 is approved. It's a stretch beyond the PoC boundary, chosen by the learner, and can stop at any point without affecting Slices 1–6.
+  PRD ref: `prd.md > Contextual Extraction (Slice 7, optional stretch)`
+  Spec ref: `spec.md > Planned: Contextual Extraction and Evaluation (Slice 7, optional)`
+  Build:
+  - Optional schema fields and `decisions` / `problems`, prompt rules plus examples that aren't taken from the evaluation, and grounding of evidence with an `inferences` flag list.
+  - UI badge, evidence quote, deadline-kind chip, and the Decisions and Problems sections; export extended to cover them.
+  - `backend/eval/` cases, scorer, `--live` / `--replay` runner, and report; scorer tests.
+  - Detailed slicing to be planned and approved when Slice 7 starts.
+  Verify (mechanical):
+  - All earlier tests pass unchanged, plus new grounding, schema, scorer, and export tests.
+  - The evaluation hard gates are 0: fabricated values, unflagged inferences, dropped references.
+  - Per-area metrics are reported against the initial targets, which are targets to validate, not pass/fail claims of proven accuracy.
+  - The demo still shows the dark-mode task, and sample mode still works.
+  Learner check: Paste the pronoun-heavy and ambiguous-"he" evaluation notes. Do inferred items show their evidence and "Inferred — confirm", and does the ambiguous one stay unassigned? Read `report.md`: which areas meet the initial targets?
+  Commit: decided at Slice 7 planning (one commit per sub-slice).
 
 ## Hands-on Checkpoints
 
@@ -105,3 +148,6 @@ Activity mode:
 - Added a **User-edited** badge for changed titles (`titleOrigin` on `Task`), and badges are written as `User-added` / `User-edited` / `User-provided`. The learner chose automatic provenance badges only, no free-form tags (Slice 5).
 - A user-entered source phrase on an added task is labeled "Source you entered — not checked against the notes", so a user value is never presented as verified against the notes (learner requirement, Slice 5).
 - User-added task ids are `u1`, `u2`, … from a never-decreasing counter that also skips ids still referenced by dependencies, so a deleted task's dangling reference can't attach to a new task (Slice 5).
+- Slice 6 expanded in planning to export the plan *exactly as it currently exists*, including Slice 5's badges (User-added, User-edited, User-provided), honest source labels, and the Slice 4 unknown/self dependency references. The export format is now pinned in `spec.md > Frontend: Markdown Export` (before Slice 6).
+- PRD non-goal changed before Slice 6, at the learner's request: **evidence-backed, explicitly flagged** inference is allowed (implied tasks, pronoun or contextual owners); unsupported or unflagged inference is still forbidden. It takes effect only in the optional Slice 7.
+- Added an optional **Slice 7** (contextual extraction, Decisions and Problems sections, and a fixed 10-case evaluation with hard safety gates and initial per-area targets), split out of the requested Slice 6 expansion to keep the PoC shippable first. Starts only after Slice 6 is approved.

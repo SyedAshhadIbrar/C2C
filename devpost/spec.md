@@ -188,27 +188,175 @@ Edit rules (`updateQuestion` in `src/plan.ts`, always an immutable update that l
 PRD ref: `prd.md > Open Questions Section`.
 
 ### Frontend: Markdown Export (`src/exportMarkdown.ts`)
-A pure function `toMarkdown(plan) → string` plus a download helper (Blob + temporary link, file `action-plan.md`). Output:
+Slice 6. A pure function `toMarkdown(plan: Plan) → string` plus `downloadMarkdown(text)`, which creates a Blob (`text/markdown;charset=utf-8`), clicks a temporary link to save `action-plan.md`, and revokes the URL. An **Export Markdown** button in the results toolbar, shown whenever results are on screen (including zero tasks), exports the **current saved plan state**. Values typed into an Edit or Add form that's still open are not saved yet, so they aren't exported.
+
+**Format** (example uses the demo plan after Slice 5 edits):
 ```
 # Action Plan
 
-## Tasks
-- [ ] Build auth API — Owner: Mia — Deadline: by Fri 12th
-  - Source: "Mia: auth API by Fri 12th"
-- [ ] Finish onboarding feature — Owner: Unassigned — Deadline: Deadline not specified
-  - Source: "let's finish this soon"
-- [ ] Write release notes — Owner: Sam (user-provided) — Deadline: … — User-added
-  - ⚠ Verification warning: Deadline not found in source phrase
+_Sample mode: generated from a saved sample response, not a live AI call._
+
+## Tasks (3)
+
+- [ ] Finish dark mode
+  - Owner: Unassigned
+  - Deadline: by Friday (User-provided)
+  - Source (from your notes): "dark mode: let's finish this soon"
+- [ ] Fix the Android login bug
+  - Owner: Raj
+  - Deadline: Deadline not specified (clarify)
+  - Source (from your notes): "Raj can't fix the login bug until the auth API is merged"
+  - Blocked by: ⚠ Unknown task "t1"
+- [ ] Book the demo room (User-added)
+  - Owner: Sam
+  - Deadline: Deadline not specified (clarify)
+  - Source (entered by you, not checked against the notes): "we need a room for the demo"
 
 ## Blockers & Dependencies
-- Fix login bug ← blocked by: Build auth API
+
+- Fix the Android login bug ← ⚠ Unknown task "t1"
 
 ## Open Questions
-- [ ] Who owns the release notes?
-- [x] Do we support SSO? (Resolved)
+
+- [x] Do we support SSO for the enterprise pilot? (Resolved)
+- [ ] Is the push redesign parked until after the pilot?
 ```
-Only data from the current plan is written; nothing is generated.
+
+**Rules:**
+- **Order:** tasks, blockers, and questions in on-screen order. Every task line uses `- [ ]`, since the app has no "done" state.
+- **Title line:** `- [ ] <title>`, plus `(User-added)` or `(User-edited)` when the card shows that badge.
+- **Owner:** the value, plus `(User-provided)` if the card shows that badge, otherwise `Unassigned`.
+- **Deadline:**
+  - the exact wording, plus `(User-provided)` if the card shows that badge
+  - `Deadline not specified (clarify)` when empty
+  - `<wording> (wording unclear, clarify)` when `deadlineAmbiguous`
+- **Warnings:** one line per warning, in card order: `⚠ Needs verification: <reason>`.
+- **Source labels** match the card:
+  - `Source (from your notes)`
+  - `Source (quoted by AI, not found in your notes)`
+  - `Source (entered by you, not checked against the notes)`
+  - The line is omitted when there's no source phrase.
+- **Blocked by:** uses `dependenciesOf`, the same as the card and the Blockers section: known titles, `⚠ Unknown task "<id>"`, `⚠ Self-dependency: this task depends on itself`, and the blocker note, joined with `; `.
+- **Blockers & Dependencies:** uses `blockerRows`. If there are none, it says `Nothing is blocked.`
+- **Open Questions:** `- [ ] <text>` when open, `- [x] <text> (Resolved)` when resolved. If there are none, it says `No open questions.`
+- **No tasks:** shows `No actionable tasks found in these notes.` under the Tasks heading.
+- **Mode line:** only in sample mode, so a sample export is never mistaken for live output.
+- **Text safety:**
+  - Every user- or AI-provided string is put on one line (newlines and runs of whitespace collapsed to one space).
+  - Markdown control characters ``\ ` * _ [ ] < >`` are escaped with a backslash, so text can't break the checklist structure or inject links or HTML.
+  - Source-phrase quotes keep their wording; only escaping is applied.
+- **Shared with the card:** badges come from `badgesOf(task)` and source labels from `sourceKind(task)` in `src/plan.ts`. `TaskCard` uses the same two functions, so the screen and the file can't disagree.
+- **Forward-compatible with Slice 7** (optional fields already declared on `Task` and `Plan`, but not populated by the API until Slice 7):
+  - A task with `inferences` gets `(Inferred — confirm)` on its title line.
+  - It gets one line per inference: `⚠ Inferred <task|owner|deadline|dependency> (Inferred — confirm). Evidence: "<quote>"`. A missing quote is written as `Evidence: none provided`, never left out.
+  - A `deadlineType` is written after the deadline, e.g. `after QA signs off (conditional)`.
+  - `## Decisions` and `## Problems` are written only when those lists exist (each item with its source label and warnings; `None.` when empty).
+  - With no Slice 7 metadata, the output is exactly the format above.
+  - **Known gap until Slice 7's UI exists:** the screen does **not** display inference metadata, deadline types, Decisions, or Problems yet. If that metadata were present, the exported file would contain information that isn't visible on screen, so the file would **not** match the UI in that case. Today nothing produces this metadata (`api.ts` doesn't map it and the backend doesn't return it), so the file and the screen match. Slice 7 must add the matching UI before any of this metadata is populated.
+- **Never writes anything that isn't in the plan:** no dates, timestamps, counts beyond what's on screen, inferred values, or reordering. `toMarkdown` doesn't modify the plan.
+
 PRD ref: `prd.md > Exporting the Checklist`.
+
+## Planned: Contextual Extraction and Evaluation (Slice 7, optional)
+Not built yet. Starts only after Slice 6 is approved; each part can be stopped without affecting Slices 1–6. PRD ref: `prd.md > Contextual Extraction (Slice 7, optional stretch)`.
+
+### Schema additions (backward compatible)
+All new fields are **optional with defaults**, so `sample_response.json`, the current API response, and the current frontend keep working unchanged:
+- `ExtractedTask`:
+  - `inferred: bool = False` and `inference_note: str | None`, for an implied task.
+  - `owner_basis: "explicit" | "pronoun" | "context" | None` and `owner_evidence: str | None`.
+  - `deadline_type: "explicit_date" | "relative" | "conditional" | "vague" | None` and `deadline_evidence: str | None`.
+  - `dependency_evidence: str | None`.
+- `Extraction`:
+  - `decisions: list[{text, source_phrase}] = []`
+  - `problems: list[{text, source_phrase}] = []`
+- **Rule:** an inferred field without its evidence is a **schema-valid but flagged** reply. Grounding adds "Needs verification: inferred <field> has no evidence"; it doesn't reject the reply.
+
+### Prompt
+- Adds rules for each category, deadline kind, and evidence requirement: **evidence quote or null; never guess between two people**.
+- Adds two or three short worked examples written for the prompt. They're **never copied from the evaluation cases**, to avoid tuning the prompt to the test.
+- Provider, model setting, JSON-schema output, and the single-retry rule are unchanged.
+
+### Grounding additions (`grounding.py`)
+- **Explicit values:** today's checks, unchanged.
+- **Owner:** an owner with basis `pronoun` or `context` must appear in its `owner_evidence`, and that evidence must appear in the notes (same normalization). It always gets the flag "Inferred — confirm" (an `inferences` list on the checked task, separate from `warnings`). It never counts as verified.
+- **Deadline and dependency:** the same for `deadline_evidence` and `dependency_evidence`.
+- **Implied task** (`inferred: true`): its source phrase is grounded as usual, and it's always flagged "Inferred — confirm".
+- **Decisions and problems:** source phrases grounded; failures add a warning, and the item is never removed.
+- **References:** unknown or self references keep today's behavior (kept and flagged).
+
+### Interface
+- **Cards:**
+  - an amber **Inferred — confirm** badge, with the evidence quote labeled "Evidence (inferred, please confirm)"
+  - a small deadline-kind chip (`conditional`, `relative`, `explicit date`)
+  - for `vague`: "Deadline not specified"
+- **Decisions** and **Problems:** two compact lists below Open Questions, each with its source quote. Problems are never added to Blockers automatically.
+- **Export:** gains `## Decisions`, `## Problems`, and `(Inferred — confirm)` plus the evidence lines.
+
+### Evaluation (`backend/eval/`)
+**Layout:**
+- `cases/NN-name.json`: notes plus expected results.
+- `run.py` with two modes:
+  - `--live` calls Gemini, **3 runs per case** at temperature 0, and saves raw replies to `eval/results/` (git-ignored).
+  - `--replay <file>` re-scores saved replies with no key.
+- `report.md`: generated.
+- `tests/test_eval_scoring.py` tests the scorer with recorded replies, so no API key is needed.
+
+**Fixed cases (10, made-up notes):**
+1. the demo notes (regression)
+2. pronoun-heavy notes
+3. two people plus an ambiguous "he" (must stay unassigned or flagged)
+4. a dependency across sentences
+5. explicit, relative, and conditional deadlines
+6. vague intentions vs. commitments
+7. decisions vs. questions
+8. problem reports with no action
+9. a contradictory update
+10. small talk only (no tasks)
+
+**Expected-result format:**
+- tasks with `match` (text that must appear in the predicted source phrase, normalized), `owner`, `owner_basis`, `deadline`, `deadline_type`, `blocked_by` (by expected task key), and `inferred`
+- `open_questions` / `decisions` / `problems`, each matched by required text
+- `must_stay_unassigned`: task keys whose owner must be null or flagged
+
+**Matching:** expected-to-predicted, one-to-one, using normalized substring containment. No fuzzy matching.
+
+**Metrics, reported separately per area:**
+
+| Area | Metric | Initial target (to validate, not proven) |
+|---|---|---|
+| Task detection | precision / recall | ≥ 0.85 / ≥ 0.85 |
+| Assignment | owner accuracy on matched tasks; ambiguous cases unassigned or flagged | ≥ 0.90; 100% |
+| Deadline interpretation | exact wording match; `deadline_type` accuracy | ≥ 0.90; ≥ 0.85 |
+| Dependency resolution | dependency precision / recall | ≥ 0.80 / ≥ 0.80 |
+| Category classification | accuracy over task / question / decision / problem | ≥ 0.85 |
+| Grounding | source phrases and evidence found in notes | ≥ 95% |
+| Validity | replies valid within one retry | 100% |
+
+**Hard safety gates (must be 0; a failure blocks Slice 7 approval):**
+- **Fabricated values:** an owner or deadline that's neither inside its source or evidence quote nor flagged as inferred.
+- **Unflagged inferences:** an inferred value without the "Inferred — confirm" flag or without evidence.
+- **Dropped references:** an unresolved reference silently removed.
+
+**Reporting:** the report shows per-case and per-area numbers, run-to-run spread across the 3 runs, and every gate violation with its quote. With 10 cases, the results show direction; they aren't statistically strong.
+
+### Compatibility, cost, and risks
+- **Compatibility:**
+  - All earlier tests must pass unchanged.
+  - The demo notes must still produce the dark-mode task.
+  - Sample mode keeps working; an optional second sample may demonstrate inferences.
+- **Cost:**
+  - About 30 Gemini calls per full evaluation run, plus retries.
+  - The longer prompt adds tokens and latency to every live call.
+  - Free-tier rate limits may need a short pause between evaluation calls.
+  - Pricing and limits must be checked before the first live evaluation.
+- **Model:** start on `gemini-3.1-flash-lite`. Comparing a larger Flash model is a `GEMINI_MODEL` change and a learner decision, because of cost.
+- **Risks:**
+  - Inference weakening the core idea. Mitigation: evidence-or-null, flags, never "verified".
+  - The prompt being tuned to the evaluation cases. Mitigation: separate examples.
+  - Run-to-run variation. Mitigation: 3 runs.
+  - The substring check proves evidence exists, not that the inference is correct, which is why inferences stay flagged for the user.
+  - Time: Slice 7 may exceed the hackathon budget, so it's optional.
 
 ## Data Model
 

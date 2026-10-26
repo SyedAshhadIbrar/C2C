@@ -31,6 +31,27 @@ export function blockerRows(tasks: Task[]): BlockerRow[] {
     .filter((row) => row.dependencies.length > 0)
 }
 
+// --- Display rules shared by TaskCard and the Markdown export, so they can't drift apart ---
+
+export type SourceKind = 'notes' | 'unverified' | 'user'
+
+/** Which source label a task's quote gets, or null when it has none. */
+export function sourceKind(task: Task): SourceKind | null {
+  if (!task.sourcePhrase) return null
+  if (task.origin === 'user') return 'user'
+  return task.warnings.some((w) => w.includes('source phrase not found')) ? 'unverified' : 'notes'
+}
+
+/** Provenance badges as shown on the card. A User-added task shows only that badge. */
+export function badgesOf(task: Task): { title: 'User-added' | 'User-edited' | null; owner: boolean; deadline: boolean } {
+  const userAdded = task.origin === 'user'
+  return {
+    title: userAdded ? 'User-added' : task.titleOrigin === 'user' ? 'User-edited' : null,
+    owner: !userAdded && !!task.owner && task.ownerOrigin === 'user',
+    deadline: !userAdded && !!task.deadline && task.deadlineOrigin === 'user',
+  }
+}
+
 // --- Task editing, deleting, adding (session-only, immutable) ---
 
 // Must match the grounding warnings from backend/app/grounding.py.

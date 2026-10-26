@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { downloadMarkdown, toMarkdown } from '../exportMarkdown'
 import type { Status } from '../App'
 import type { NewTask, TaskEdit } from '../plan'
 import type { Plan, Question } from '../types'
@@ -42,6 +43,9 @@ export default function ResultsPanel({ status, plan, error, onRetry, onQuestionC
                 </span>
               )}
               <button className="btn-ghost" onClick={() => setAdding(true)} disabled={adding}>+ Add task</button>
+              <button className="btn-ghost" onClick={() => downloadMarkdown(toMarkdown(plan))} title="Download the plan as shown (saved edits only)">
+                Export Markdown
+              </button>
             </div>
           </div>
           {plan.tasks.length === 0 && !adding ? (
