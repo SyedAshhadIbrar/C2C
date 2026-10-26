@@ -9,3 +9,6 @@ __pycache__/
 .pytest_cache/
 node_modules/
 dist/
+
+# Vercel CLI output
+.vercel/

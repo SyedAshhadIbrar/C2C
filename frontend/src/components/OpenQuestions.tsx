@@ -9,19 +9,31 @@ interface Props {
 }
 
 export default function OpenQuestions({ questions, onChange }: Props) {
-  const open = questions.filter((q) => !q.resolved).length
+  const [showResolved, setShowResolved] = useState(false)
+  const open = questions.filter((q) => !q.resolved)
+  const resolved = questions.filter((q) => q.resolved)
 
   return (
-    <section className="results-section" aria-labelledby="questions-title">
-      <h2 id="questions-title" className="panel-title">Open Questions <span className="count">{open}</span></h2>
-      {questions.length === 0 ? (
-        <p className="muted section-empty">No open questions found.</p>
-      ) : (
-        <ul className="question-list">
-          {questions.map((q) => (
-            <QuestionRow key={q.id} question={q} onChange={(patch) => onChange(q.id, patch)} />
-          ))}
-        </ul>
+    <section id="questions" className="cc-section" aria-labelledby="questions-title">
+      <h2 id="questions-title" className="cc-h2">Open questions <span className="cc-spark" aria-hidden="true">✦</span></h2>
+      {open.length === 0 && <p className="cc-meta cc-m0">{questions.length ? 'All questions are resolved.' : 'No open questions found.'}</p>}
+      {open.map((q) => (
+        <QuestionRow key={q.id} question={q} onChange={(patch) => onChange(q.id, patch)} />
+      ))}
+      {resolved.length > 0 && (
+        <>
+          <button type="button" className="cc-disclosure" aria-expanded={showResolved} aria-controls="resolved-questions"
+            onClick={() => setShowResolved(!showResolved)}>
+            Resolved ({resolved.length}) {showResolved ? '▴' : '▾'}
+          </button>
+          {showResolved && (
+            <div id="resolved-questions">
+              {resolved.map((q) => (
+                <QuestionRow key={q.id} question={q} onChange={(patch) => onChange(q.id, patch)} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   )
@@ -43,9 +55,10 @@ function QuestionRow({ question: q, onChange }: { question: Question; onChange: 
   }
 
   return (
-    <li className={q.resolved ? 'question resolved' : 'question'}>
+    <div className={`cc-question${q.resolved ? ' is-resolved' : ''}`}>
+      <span className="cc-qmark" aria-hidden="true">?</span>
       <input
-        className="question-text"
+        className="cc-question-text"
         value={draft}
         disabled={q.resolved}
         onChange={(e) => setDraft(e.target.value)}
@@ -53,10 +66,9 @@ function QuestionRow({ question: q, onChange }: { question: Question; onChange: 
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         aria-label={q.resolved ? 'Question wording (reopen to edit)' : 'Question wording'}
       />
-      {q.resolved && <span className="pill pill-ok">Resolved</span>}
-      <button className="btn-ghost" onClick={() => onChange({ resolved: !q.resolved })}>
+      <button type="button" className="cc-textbtn" onClick={() => onChange({ resolved: !q.resolved })}>
         {q.resolved ? 'Reopen' : 'Resolve'}
       </button>
-    </li>
+    </div>
   )
 }

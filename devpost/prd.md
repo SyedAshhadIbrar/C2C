@@ -21,20 +21,28 @@ Source: `scope.md > The Core Loop`, `scope.md > What "Working" Looks Like`.
 Success: a judge can match each task to its source phrase, see that nothing missing was made up, and download a usable checklist.
 
 ## Screens and Layout
-One screen, two columns:
-- **Left — Notes:** the pasted notes, always visible, plus the **Organize Notes** button.
-- **Right — Results:** an empty state before organizing. After organizing it shows, in order: task cards → **Blockers & Dependencies** section → **Open Questions** section. It also holds the **Add task** and export controls.
+One screen (redesigned after Slice 6 from the learner's reference: desktop `Main.dc.html` and the mobile PDF "Mobile — organized plan"):
+- **Header:** the C→C mark and "Chaos to Clarity", the **Sample mode · no AI call** badge when relevant, **Search tasks** (filters what's shown by title, source phrase, or owner; it never changes the plan or the export), **Export**, **Copy Markdown**, and a **Help (?)** panel explaining every label.
+- **Left column:**
+  - **Your notes**: a text box, then after Organize a read-only view where the selected task's source phrase is highlighted (only when it's really in the notes). Includes **Edit notes**, a character count, **Try sample notes**, and **Organize notes →**.
+  - **Clarity**: % of tasks with an owner, % with a deadline, open questions, and a per-task completeness bar (owner + deadline + source found in notes).
+- **Middle column:**
+  - **Tasks for this meeting**, with **+ Add task** and count chips (#tasks / #questions / #blockers) that jump to each section.
+  - One row per task: title, source quote, owner initial or **Unassigned**, deadline as written or **No date**, and **⋯** (Edit / Delete). Below each row: provenance, warnings, and Blocked-by chips. Edit and Add use an inline panel.
+  - Then **Open questions** (Resolve / Reopen, a collapsible "Resolved (N)") and **Blockers**.
+- **Right column: Deadlines.** Tasks grouped by their **exact deadline wording** ("by Friday"), plus **No date (N)** with **Set dates →**, which opens editing for the first undated task. Never calendar dates or guesses.
+- **Responsive:** three columns from 1200px; two columns with Deadlines below from 768px; one column on mobile (menu button with search, Export, Copy, Help; 3-up stats; sideways-scrolling deadlines; stacked task rows).
 
-Nothing navigates away from this screen. Editing happens on the cards themselves.
+Nothing navigates away from this screen.
 
 ## Look and Feel
-- **Mood:** a clean, modern productivity app that feels calm, organized, and trustworthy. The feeling is "a cluttered desk becoming an organized workspace."
-- **Colors:** warm off-white background, white task cards, dark charcoal text, muted teal/sage green as the main accent. Amber for missing information and warnings; restrained red only for errors. Few colors overall.
-- **Typography:** clear, modern sans-serif with strong readability and an obvious hierarchy.
-- **Layout:** a spacious two-column workspace with subtle borders, consistent spacing, and compact but readable cards that never feel crowded.
-- **Motion:** the transition from notes to tasks should feel satisfying, but subtle and fast.
-- **Trust labels:** source phrases are easy to find. Clear labels for "Unassigned," "Deadline not specified," "User-added," and verification warnings.
-- **Avoid:** generic AI gradients, heavy glassmorphism, distracting animations, too many colors, crowded dashboards.
+Source of truth: the learner's reference designs (desktop HTML and mobile PDF), adopted after Slice 6. They replace the earlier warm off-white and teal direction.
+- **Colors:** black and white (`#0B0B0B` ink on `#FFFFFF`, greys `#3A3A3A` / `#737373` / `#E9E9E9` / `#F1F1F1`), **orange `#FF5A1F`** for missing information and attention (Unassigned, No date, Needs verification, unknown dependencies, errors), and **lime `#D9F95C`** for highlights (deadlines as written, the selected task's source highlighted in the notes, open-question count).
+- **Typography:** Instrument Sans (Google Fonts), 24px/600 section titles, 17px subsection titles, 14px body, 13px meta.
+- **Layout:** full-height white page with 1px `#E9E9E9` dividers, 32px padding, 8px radius, compact 52px task rows, small chips.
+- **Motion:** rows fade in quickly; loading uses skeleton rows; all motion respects reduced-motion.
+- **Trust labels stay visible:** Needs verification, Quote not found in notes, Unassigned, No date (deadline not specified), User-added, User-edited, User-provided owner/deadline, Unknown task, and Sample mode.
+- **Not adopted from the reference** (conflicts with the product rules or out of scope): guessed or calendar-converted dates ("Oct 27 · guessed"), priority, completion checkboxes, History, Board view, and "Ask: <name>" on questions.
 
 ## Features and Behavior
 
@@ -155,6 +163,7 @@ Source: learner decision after Slice 5. Only started after Slice 6 is approved; 
 - Export reflects the edited plan as it currently exists (added, edited, and deleted tasks included as they are) and includes the full plan (tasks, blockers, open questions) with all labels, badges, and warnings, adding nothing new.
 - **Evidence-backed inference is allowed, but always flagged** (decision before Slice 6): the app may infer implied tasks and resolve pronoun or contextual assignments only when the notes support it. Every inferred task or field carries an evidence quote and an "Inferred — confirm" badge; ambiguous assignments stay unassigned or flagged; inferred information is never presented as verified.
 - **Work split:** Slice 6 = Markdown export, finished and verified first. Slice 7 = optional stretch for contextual extraction and evaluation, started only after Slice 6 is approved.
+- **Redesign after Slice 6 (learner's reference):** adopted the black-and-white design with orange and lime. Deadlines are grouped by exact wording (no guessed or converted dates). Priority, completion checkboxes, History, Board view, and "Ask: <name>" were dropped. Search filters only what's shown. Help explains every label. Copy Markdown uses the same export as Export, with a toast that reports the real clipboard result.
 - **Slice 7 sections:** Open Questions stays separate; Decisions and Problems get their own minimal sections; problem reports are not treated as blockers automatically.
 
 ## What We're Building

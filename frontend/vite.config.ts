@@ -6,5 +6,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: { '/api': 'http://localhost:8000' },
+    fs: { allow: ['..'] }, // "Try sample notes" imports ../demo/notes.txt
   },
 })

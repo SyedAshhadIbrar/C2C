@@ -23,12 +23,12 @@ Why this shape: one endpoint, no database, no login. That's the smallest setup t
 ## The Core Journey Through the System
 PRD ref: `prd.md > The Core Journey`.
 
-1. **Open:** the browser loads the frontend from the Vite dev server. The right panel shows `EmptyState`.
+1. **Open:** the browser loads the frontend from the Vite dev server. The tasks column shows its empty state.
 2. **Paste + Organize Notes:** if the box is empty, the frontend shows "Paste notes first" and makes no request. Otherwise it `POST`s `{ notes }` to `/api/organize` and the right panel shows a loading state.
 3. **Backend extraction:** `extract.py` sends the notes plus the extraction prompt to Gemini in JSON mode with our schema (or loads `sample_response.json` in sample mode).
 4. **Schema check:** `schemas.py` parses the reply into `Extraction`. If the JSON is malformed or fails the schema, there's one automatic retry; if that fails too, the backend returns HTTP 502 → the frontend shows an error with a **Retry** button, and the notes stay put.
 5. **Grounding check:** `grounding.py` checks each task's source phrase against the notes, and the owner and deadline against the source phrase. It attaches `warnings` ("Needs verification"). No retry happens here.
-6. **Results:** the frontend turns the response into its in-memory plan and renders `TaskCard`s, `BlockersSection`, and `OpenQuestions`. If there are zero tasks, it shows "No actionable tasks found," with open questions still listed.
+6. **Results:** the frontend turns the response into its in-memory plan and renders `TaskRow`s, `ClarityStats`, `DeadlinesRail`, `BlockersSection`, and `OpenQuestions`. If there are zero tasks, it shows "No actionable tasks found," with open questions still listed.
 7. **Edit:** card edits change in-memory state only. Edited owners and deadlines are marked `user`. Delete asks for inline confirmation. **Add task** creates a `user`-origin card.
 8. **Export:** `exportMarkdown.ts` turns the current state into Markdown and the browser downloads `action-plan.md`.
 
@@ -67,17 +67,14 @@ Vite proxies `/api` to `localhost:8000`, so no CORS setup is needed.
 **Demo recording:** paste `demo/notes.txt` → Organize Notes → point out the "finish this soon" card → add a date to it → resolve a question → delete or add a task → export and open `action-plan.md`. Use `demo/ambiguity-test.txt` to show warnings. For the submission: a short video plus a public GitHub repo (see `6-ship`).
 
 ## Look and Feel
-From `prd.md > Look and Feel`, as CSS variables in `styles.css`:
-- `--bg: #f7f5f0` (warm off-white) · `--card: #ffffff` · `--ink: #2a2b2e` (charcoal) · `--muted: #6a6d72` · `--line: #e2ddd3`
-- `--accent: #3f8a7e` (muted teal/sage): primary button, focus rings, verified/source accents
-- `--warn: #a8640c` / `--warn-bg: #fdf1dc` (amber): "Deadline not specified," "Unassigned," verification warnings
-- `--err: #b03a2e` / `--err-bg: #fbe9e7`: error messages only
-- **Type:** "Inter" (Google Fonts) falling back to `system-ui`. Title 600 weight; labels 12px uppercase-ish small caps; body 15px.
-- **Layout:** two columns (`grid-template-columns: minmax(320px, 2fr) 3fr`), 24px gaps, 12px card radius, 1px borders, no heavy shadows. Stacks to one column under 800px.
-- **Source phrase:** an italic quote block with a teal left border. The verification warning sits in that same spot in amber.
-- **Labels:** small pills: `Unassigned`, `Deadline not specified`, `User-added`, `user-provided`, `Needs verification`.
-- **Motion:** cards fade and slide up 4px, staggered about 30ms, about 200ms total. Respects `prefers-reduced-motion`.
-- **Avoid:** gradients, glassmorphism, extra colors.
+From `prd.md > Look and Feel` (learner's reference designs). Tokens in `frontend/src/styles.css`:
+- `--ink #0B0B0B` · `--ink-2 #3A3A3A` · `--muted #737373` · `--line #E9E9E9` · `--soft #F1F1F1` · `--hover #FAFAFA` · `--bar #CFCFCF` · `--white #FFFFFF`
+- `--orange #FF5A1F`: missing or attention chips (`chip-orange`), the warning mark ⚠, and the error-box accent. Text on orange is ink.
+- `--lime #D9F95C` with `--lime-ink #1A1F00`: deadline chips (`chip-lime`), the notes highlight (`cc-mark-hl`), and the open-questions count chip.
+- **Type:** Instrument Sans (Google Fonts, in `index.html`), falling back to Inter and system-ui.
+- **Grid:** `360px | 1fr | 240px` (≥1200px) → `320px | 1fr` with Deadlines full-width below (768–1199px) → one column (<768px): notes, 3-up stats, sideways-scrolling Deadlines, then Tasks, matching the mobile PDF.
+- **Chips:** `chip-grey` (neutral or provenance), `chip-lime` (deadline as written), `chip-orange` (Unassigned, No date, Needs verification, Quote not found, Unknown task), `chip-outline` (known dependency).
+- **Motion:** row fade-in at 180ms, skeleton shimmer while loading. Both are off under `prefers-reduced-motion`.
 
 ## Components
 
@@ -135,19 +132,53 @@ Nothing else is normalized: no punctuation stripping, no stemming, no fuzzy or s
 PRD ref: `prd.md > Verification Warnings`.
 
 ### Frontend: App Shell (`src/App.tsx`)
-Holds all state (`useState`): `notes`, `status` (`idle | loading | error | done`), `plan`, `mode`. Renders a two-column grid with `NotesPanel` and `ResultsPanel`.
+Holds the plan state (`notes`, `status`, `plan`, `error`, the user-added id counter) and **screen-only state** that never changes the plan or the export: `notesEditing`, `selectedId`, `editingId`, `adding`, `search`, `helpOpen`, `toast`. It renders `Header`, the three-column grid (`NotesPanel` + `ClarityStats` | `TasksPanel` | `DeadlinesRail`), `HelpDialog`, and `Toast`.
+- **Export** → `downloadMarkdown(toMarkdown(plan))`.
+- **Copy Markdown** → `navigator.clipboard.writeText(toMarkdown(plan))`, raced against a 3-second timeout. The toast says "Copied" only when the write resolves, otherwise "Couldn't confirm the copy. Use Export instead."
+- **Try sample notes** loads `demo/notes.txt` (imported with `?raw`; `vite.config.ts` allows `..`).
+- **Set dates →** and the Deadlines task links clear the search, select the task, scroll to it, and (for Set dates) open its edit panel.
 PRD ref: `prd.md > Screens and Layout`.
 
+### Frontend: Header (`src/components/Header.tsx`)
+Brand, the Sample mode badge, **Search tasks** (disabled until there's a plan), **Export**, **Copy Markdown**, and **Help**. Under 768px these move into a menu button (`aria-expanded`) that also contains the search box.
+
 ### Frontend: NotesPanel (`src/components/NotesPanel.tsx`)
-The textarea and the **Organize Notes** button (disabled while loading). Shows the "Paste notes first" message for empty input.
+Before the first Organize, and after **Edit notes**: a textarea. After a successful Organize: a read-only view where the selected task's source phrase is highlighted in lime. `findInNotes` (in `src/view.ts`) uses the grounding normalization (case, whitespace runs, quote style), so nothing is highlighted for a quote that isn't really in the notes. Also shows the character count, **Try sample notes**, "Paste notes first." for empty input (no request), and **Organize notes →** (disabled while loading).
 PRD ref: `prd.md > Organizing Notes`.
 
-### Frontend: ResultsPanel (`src/components/ResultsPanel.tsx`)
-Switches on status: `EmptyState` (idle) · loading · error with **Retry** · results. Results show the toolbar (**Add task**, **Export**, plus a "Sample mode" badge when relevant), the task cards, `BlockersSection`, and `OpenQuestions`. With zero tasks it shows "No actionable tasks found."
+### Frontend: ClarityStats (`src/components/ClarityStats.tsx`)
+`clarityStats(plan)`: % of tasks with an owner, % with a deadline (shown as "—" when there are no tasks, never a fake 0% or 100%), and unresolved questions. The per-task bars show `completeness(task)` = owner + deadline + source found in notes (0–3; black at 3/3), with a text alternative.
+
+### Frontend: TasksPanel (`src/components/TasksPanel.tsx`)
+States:
+- **Idle:** an empty state with **Try sample notes**.
+- **Loading:** skeleton rows plus "Organizing your notes…" (`role="status"`).
+- **Error:** the box with the backend's message, "Your notes are kept.", and **Retry**.
+- **Results:** the heading, **+ Add task**, and count chips linking to `#tasks` / `#questions` / `#blockers` (questions lime when > 0, blockers orange when > 0). On mobile the Sample-mode chip appears in this row. Then the rows filtered by `matchesSearch` (with "Showing N of M … · Clear search"), the inline **New task** panel, `OpenQuestions`, and `BlockersSection`. With zero tasks: "No actionable tasks found in these notes."
 PRD ref: `prd.md > States and Boundaries`.
 
-### Frontend: TaskCard (`src/components/TaskCard.tsx`)
-Shows, in order: title (+ provenance badges) → owner (or `Unassigned` pill) → deadline (or `Deadline not specified` pill + "Clarify the deadline" prompt; an ambiguous deadline also gets the prompt) → verification warnings → source phrase → blocked status (see `Frontend: BlockersSection` for the dependency chips) → **Edit** / **Delete** buttons.
+### Frontend: DeadlinesRail (`src/components/DeadlinesRail.tsx`)
+`deadlineGroups(tasks)`: groups by the **exact** stored deadline wording, in first-appearance order, plus undated tasks. Each group shows the wording large and its task titles (links that select the task); ambiguous wording gets "unclear wording". "No date (N)" lists undated tasks and **Set dates →** (opens editing for the first one). No calendar conversion, no guessed dates.
+
+### Frontend: HelpDialog and Toast (`src/components/HelpDialog.tsx`, `Toast.tsx`)
+- **Help:** a native `<dialog>` (modal, focus trapped, Escape and backdrop close) explaining Needs verification, Quote not found, the source quote and its highlight, Unassigned / No date, deadline wording, User-added / User-edited / User-provided, Blocked by and Unknown task, Sample mode, and Export / Copy (search doesn't affect them).
+- **Toast:** a bottom-center pill in a `role="status"` live region, shown for about 2.2 seconds.
+
+### Frontend: TaskRow (`src/components/TaskRow.tsx`, form in `TaskForm.tsx`)
+Redesigned from the Slice 5 card; behavior unchanged. Main line:
+- **Title:** a button that selects the task and highlights its source in the notes.
+- **Source quote.**
+- **Owner:** initial avatar (full name in the tooltip and accessible label), or `Unassigned` (orange).
+- **Deadline:** exactly as written (lime), or `No date` (orange, accessible name "Deadline not specified, clarify").
+- **⋯ menu** (`role="menu"`, Escape and outside click close it, focus moves to the first item): **Edit** and **Delete**.
+
+Meta line chips:
+- `User-added` / `User-edited` / `User-provided owner` / `User-provided deadline` (grey)
+- `Needs verification` / `Quote not found in notes` / `Unclear wording · clarify` (orange)
+- `Your source · not checked` for a user-added source
+- Blocked-by chips (`chip-outline`, or orange `⚠ Unknown task` / `⚠ Self-dependency`)
+
+Every warning is listed in full under the row. Delete asks inline ("Delete this task? Yes, delete / No"). Edit and Add use the inline underlined panel from the reference (Title, Owner, Deadline, plus Source phrase when adding; Save / Cancel; Escape cancels). Badges and source kinds come from `badgesOf` / `sourceKind`, the same functions the export uses.
 
 **Editing (Slice 5).** **Edit** turns the card's title, owner, and deadline into inputs on the card (same page), with **Save** / **Cancel**. Rules (`editTask` in `src/plan.ts`, an immutable update; other tasks are untouched):
 - **Title** is trimmed and required: a blank or whitespace-only title shows "Title is required." and isn't saved. A changed title is marked `titleOrigin: "user"` → **User-edited** badge.
@@ -245,7 +276,7 @@ _Sample mode: generated from a saved sample response, not a live AI call._
   - Every user- or AI-provided string is put on one line (newlines and runs of whitespace collapsed to one space).
   - Markdown control characters ``\ ` * _ [ ] < >`` are escaped with a backslash, so text can't break the checklist structure or inject links or HTML.
   - Source-phrase quotes keep their wording; only escaping is applied.
-- **Shared with the card:** badges come from `badgesOf(task)` and source labels from `sourceKind(task)` in `src/plan.ts`. `TaskCard` uses the same two functions, so the screen and the file can't disagree.
+- **Shared with the card:** badges come from `badgesOf(task)` and source labels from `sourceKind(task)` in `src/plan.ts`. `TaskRow` uses the same two functions, so the screen and the file can't disagree.
 - **Forward-compatible with Slice 7** (optional fields already declared on `Task` and `Plan`, but not populated by the API until Slice 7):
   - A task with `inferences` gets `(Inferred — confirm)` on its title line.
   - It gets one line per inference: `⚠ Inferred <task|owner|deadline|dependency> (Inferred — confirm). Evidence: "<quote>"`. A missing quote is written as `Evidence: none provided`, never left out.
@@ -415,19 +446,26 @@ C2C/
 │   └── .env.example              # GEMINI_API_KEY=, GEMINI_MODEL=
 ├── frontend/                     # Vite react-ts scaffold
 │   ├── src/
-│   │   ├── App.tsx               # state + two-column layout
+│   │   ├── App.tsx               # plan state + screen-only state, three-column layout
+│   │   ├── view.ts / view.test.ts # read-only view helpers: stats, deadline groups, search, notes highlight
 │   │   ├── api.ts                # organize(notes) fetch wrapper
 │   │   ├── types.ts              # Task, Question, Plan
 │   │   ├── exportMarkdown.ts     # toMarkdown + download
 │   │   ├── exportMarkdown.test.ts
-│   │   ├── styles.css            # color variables + layout
+│   │   ├── styles.css            # design tokens + responsive layout (reference design)
 │   │   └── components/
-│   │       ├── NotesPanel.tsx
-│   │       ├── ResultsPanel.tsx
-│   │       ├── EmptyState.tsx
-│   │       ├── TaskCard.tsx
+│   │       ├── Header.tsx        # brand, search, Export, Copy Markdown, Help, mobile menu
+│   │       ├── NotesPanel.tsx    # notes input / read-only view with source highlight
+│   │       ├── ClarityStats.tsx  # owner / deadline / question stats + completeness bars
+│   │       ├── TasksPanel.tsx    # tasks column: states, chips, rows, add panel
+│   │       ├── TaskRow.tsx       # one task row, ⋯ menu, flags, delete confirm, edit panel
+│   │       ├── TaskForm.tsx      # inline edit / add panel
+│   │       ├── OpenQuestions.tsx # resolve / reopen / reword, collapsible resolved list
 │   │       ├── BlockersSection.tsx
-│   │       └── OpenQuestions.tsx
+│   │       ├── DeadlinesRail.tsx # grouped by exact deadline wording + No date
+│   │       ├── HelpDialog.tsx    # label explanations (<dialog>)
+│   │       ├── Toast.tsx         # "Copied" / error status pill
+│   │       └── Icons.tsx         # inline SVG icons from the reference
 │   └── vite.config.ts            # proxy /api → :8000
 ├── demo/
 │   ├── notes.txt                 # realistic dev-team planning notes (the demo)
