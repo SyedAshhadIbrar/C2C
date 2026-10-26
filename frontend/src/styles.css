@@ -97,3 +97,5 @@ button, textarea, input { font: inherit; color: inherit; }
 .warnings li + li { margin-top: 2px; }
 .source-unverified { border-left-color: var(--warn); }
 .source-unverified .source-label { color: var(--warn); }
+.error-msg p { margin: 0 0 10px; }
+.btn-secondary { padding: 6px 14px; border: 1px solid var(--err); border-radius: 8px; background: var(--card); color: var(--err); font-weight: 600; cursor: pointer; }

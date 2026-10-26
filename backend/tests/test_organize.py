@@ -11,7 +11,7 @@ DEMO_NOTES = (Path(__file__).parents[2] / "demo" / "notes.txt").read_text(encodi
 @pytest.fixture
 def client(monkeypatch):
     # Sample mode must work with no API key at all.
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     return TestClient(app)
 
 

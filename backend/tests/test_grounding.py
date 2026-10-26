@@ -40,7 +40,7 @@ def test_exact_phrase_verified():
 
 
 def test_case_whitespace_and_quotes_ignored():
-    # notes use a curly apostrophe; Qwen returns straight, different case, extra spaces
+    # notes use a curly apostrophe; the AI returns straight, different case, extra spaces
     assert warnings_for(task("DARK MODE:   let's finish this soon")) == []
 
 

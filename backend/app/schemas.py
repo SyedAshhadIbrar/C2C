@@ -20,7 +20,7 @@ class OpenQuestion(BaseModel):
 
 
 class Extraction(BaseModel):
-    """The shape Qwen must return. Unknown extra fields are ignored."""
+    """The shape the AI must return. Unknown extra fields are ignored."""
 
     tasks: list[ExtractedTask]
     open_questions: list[OpenQuestion]

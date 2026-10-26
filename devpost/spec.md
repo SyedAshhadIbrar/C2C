@@ -9,14 +9,14 @@ status: approved
 Chaos to Clarity has two small programs that run on your laptop:
 
 - **The frontend** (React + TypeScript) is the screen: notes on the left, results on the right. It holds the current plan in memory while you edit it, and it builds the Markdown export. Reloading the page clears everything; nothing is saved.
-- **The backend** (FastAPI, Python) has one job. It takes your notes, asks Qwen to pull out tasks and open questions as JSON, **checks that answer twice**, and sends the checked result back. It's the only place that knows your API key.
+- **The backend** (FastAPI, Python) has one job. It takes your notes, asks Google Gemini to pull out tasks and open questions as JSON, **checks that answer twice**, and sends the checked result back. It's the only place that knows your API key.
 
 The two checks are the heart of the app:
 
-1. **Schema check (Pydantic):** "Is this the right *shape*?" Qwen's JSON mode guarantees JSON, but not *our* JSON. Pydantic models describe exactly what a task must look like. If the answer doesn't fit, the backend asks once more, then reports an error. Nothing half-checked reaches the screen.
+1. **Schema check (Pydantic):** "Is this the right *shape*?" Gemini is asked for JSON matching our schema, but its answer is still treated as untrusted. Pydantic models describe exactly what a task must look like. If the answer doesn't fit, the backend asks once more, then reports an error. Nothing half-checked reaches the screen.
 2. **Grounding check (our matching rules):** "Is it *supported by the notes*?" Every task's source phrase must appear in the notes as one continuous passage, ignoring only capitalization, extra spaces, and quote style. Owners and deadlines must appear inside that task's source phrase. Anything that fails is still shown, with a verification warning.
 
-If no API key is set, the backend runs in **sample mode**. It returns a saved, realistic Qwen response for the demo notes instead of calling the AI, and the screen shows a "Sample mode" badge. Both checks still run, so the reliability features are real even before the key works.
+If no API key is set, the backend runs in **sample mode**. It returns a saved, realistic AI response for the demo notes instead of calling the AI, and the screen shows a "Sample mode" badge. Both checks still run, so the reliability features are real even before the key works.
 
 Why this shape: one endpoint, no database, no login. That's the smallest setup that keeps the key off the browser and puts validation where it's easy to test.
 
@@ -25,7 +25,7 @@ PRD ref: `prd.md > The Core Journey`.
 
 1. **Open:** the browser loads the frontend from the Vite dev server. The right panel shows `EmptyState`.
 2. **Paste + Organize Notes:** if the box is empty, the frontend shows "Paste notes first" and makes no request. Otherwise it `POST`s `{ notes }` to `/api/organize` and the right panel shows a loading state.
-3. **Backend extraction:** `extract.py` sends the notes plus the extraction prompt to Qwen in JSON mode (or loads `sample_response.json` in sample mode).
+3. **Backend extraction:** `extract.py` sends the notes plus the extraction prompt to Gemini in JSON mode with our schema (or loads `sample_response.json` in sample mode).
 4. **Schema check:** `schemas.py` parses the reply into `Extraction`. If the JSON is malformed or fails the schema, there's one automatic retry; if that fails too, the backend returns HTTP 502 → the frontend shows an error with a **Retry** button, and the notes stay put.
 5. **Grounding check:** `grounding.py` checks each task's source phrase against the notes, and the owner and deadline against the source phrase. It attaches `warnings` ("Needs verification"). No retry happens here.
 6. **Results:** the frontend turns the response into its in-memory plan and renders `TaskCard`s, `BlockersSection`, and `OpenQuestions`. If there are zero tasks, it shows "No actionable tasks found," with open questions still listed.
@@ -37,24 +37,24 @@ PRD ref: `prd.md > The Core Journey`.
 - **Styling:** plain CSS with color variables (no UI library). This keeps the look calm and custom without adding a dependency.
 - **Backend:** Python + FastAPI + Uvicorn. *Learner's choice: familiar.* Docs: https://fastapi.tiangolo.com
 - **Validation:** Pydantic v2 (comes with FastAPI). Docs: https://docs.pydantic.dev
-- **AI client:** the `openai` Python SDK pointed at Qwen's OpenAI-compatible endpoint. *Learner chose Qwen via Alibaba Cloud Model Studio.* Docs: https://www.alibabacloud.com/help/en/model-studio/
+- **AI client:** the official Google Gen AI SDK (`google-genai`, 2.33.0) calling Gemini, default model `gemini-3.1-flash-lite`. *Learner switched from Qwen to Gemini during the build (see `checklist.md > Revisions`).* Docs: https://ai.google.dev/gemini-api/docs, https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
 - **Config:** `python-dotenv` reads `backend/.env`.
 - **Tests:** `pytest` (backend grounding and schema), `vitest` (export). Docs: https://docs.pytest.org, https://vitest.dev
 
 **Python version:** use **Python 3.12 or 3.13** for the backend (not the installed 3.15). Built with **3.12** via `uv venv --python 3.12`, because 3.13 is blocked from running on this machine (see `checklist.md > Revisions`).
 
 **Check early in the build (unverified):**
-- The Qwen details below come from third-party docs. Confirm the base URL, the model name, and `response_format: json_object` support in the Model Studio console with a one-request smoke test.
+- Gemini details were checked against Google's docs and confirmed with a live smoke test during Slice 3.
 
 ## Where It Runs and How Someone Tries It
-Runs locally only, with no deployment (`scope.md > Later`). It needs Node 18+ (24 installed), Python 3.12 (via `uv`), and optionally a Model Studio API key.
+Runs locally only, with no deployment (`scope.md > Later`). It needs Node 18+ (24 installed), Python 3.12 (via `uv`), and optionally a Gemini API key.
 
 ```
 # terminal 1 — backend
 cd backend
 uv venv --python 3.12
 uv pip install -r requirements.txt
-copy .env.example .env      # add DASHSCOPE_API_KEY, or leave it blank for sample mode
+copy .env.example .env      # add GEMINI_API_KEY, or leave it blank for sample mode
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 
 # terminal 2 — frontend
@@ -84,17 +84,31 @@ From `prd.md > Look and Feel`, as CSS variables in `styles.css`:
 ### Backend: Organize Endpoint (`app/main.py`)
 `POST /api/organize`, body `{ "notes": string }`.
 - Empty or whitespace-only notes → 400 (the frontend also blocks this).
-- Calls the Qwen Extraction Service → the schema check (in `extract.py`) → the Grounding Check, and returns `OrganizeResponse`.
+- Calls the AI Extraction Service → the schema check (in `extract.py`) → the Grounding Check, and returns `OrganizeResponse`.
 - AI or schema failure after the retry → 502 `{ "detail": "..." }`.
 
 `GET /api/health` → `{ "mode": "live" | "sample" }`.
 PRD ref: `prd.md > Organizing Notes`, `prd.md > States and Boundaries`.
 
-### Backend: Qwen Extraction Service (`app/extract.py`)
-- Builds the prompt and calls `client.chat.completions.create(model=QWEN_MODEL, response_format={"type": "json_object"}, temperature=0, messages=[system, user])`.
-- **The prompt rules (in the system message) mirror the product rules:** extract only what's stated; `owner`/`deadline` are `null` unless explicitly stated; relative deadlines are copied **exactly as written** and never converted; set `deadline_ambiguous: true` if a stated deadline is genuinely unclear; `source_phrase` is copied verbatim from the notes; unanswered questions are listed and never answered. It includes the JSON shape and the word "JSON" (JSON mode requires it).
+### Backend: AI Extraction Service (`app/extract.py`)
+- Calls `client.models.generate_content(model=GEMINI_MODEL or "gemini-3.1-flash-lite", contents=notes, config=GenerateContentConfig(system_instruction=..., response_mime_type="application/json", response_json_schema=Extraction.model_json_schema(), temperature=0))`. The client is `genai.Client(api_key=GEMINI_API_KEY)`, created server-side only; tests inject a fake client.
+- **The prompt rules (`SYSTEM_PROMPT`, sent as the system instruction) mirror the product rules:** extract only what's stated; `owner`/`deadline` are `null` unless explicitly stated; relative deadlines are copied **exactly as written** and never converted; set `deadline_ambiguous: true` if a stated deadline is genuinely unclear; `source_phrase` is copied verbatim from the notes; unanswered questions are listed and never answered.
+- **Tasks vs. open questions:** an actionable commitment stays a **task** even when its timing is vague, with `deadline: null` (shown as "Deadline not specified") and no invented owner, date, or extra commitment. **Open questions** are only genuinely unresolved questions or undecided decisions, never tasks that are missing an owner or deadline.
+- **Few-shot example in the prompt** (added after a live run classified dark mode as a question):
+  - Notes: `dark mode: let's finish this soon`
+  - Correct output: `{"tasks": [{"id": "t1", "title": "Finish dark mode", "owner": null, "deadline": null, "deadline_ambiguous": false, "source_phrase": "dark mode: let's finish this soon", "blocked_by": [], "blocker_note": null}], "open_questions": []}`
+  - Wrong: an open question such as "When will dark mode be finished?"
+  - `tests/test_extract.py` checks that this example itself passes the schema and the grounding check.
+- **JSON output:** Gemini is configured with `response_mime_type="application/json"` and `response_json_schema=Extraction.model_json_schema()`, so it's asked for JSON in our exact shape. The prompt doesn't need any particular keyword. The reply is still untrusted: it's always parsed and validated by Pydantic (below), then grounding-checked.
 - Validates with `Extraction.model_validate_json(...)`. **Retry rule:** exactly **one** automatic retry, only when the reply is malformed JSON or fails the Pydantic schema check. If the retry also fails, it raises, which becomes a 502. **Grounding failures never trigger a retry.** They stay in the result as visible "Needs verification" warnings.
-- **Sample mode:** if `DASHSCOPE_API_KEY` is empty, it skips the call, loads `app/sample_response.json`, and sets `mode = "sample"`. The sample still goes through the schema check and the grounding check.
+- **Sample mode:** if `GEMINI_API_KEY` is empty, it skips the call, loads `app/sample_response.json`, and sets `mode = "sample"`. The sample still goes through the schema check and the grounding check.
+- API errors (network, auth, quota, 503 overload) are **not** retried; they raise `ExtractionError` with the original exception attached, logged in the backend terminal and returned as a 502 whose `detail` shows the actual cause plus a hint.
+- **Error hints** (`hint_for` in `extract.py`), specific only when the Gemini HTTP status identifies the cause:
+  - 400/401/403/404 (bad or missing key, no permission, unknown model) → "Check GEMINI_API_KEY and GEMINI_MODEL in backend/.env, then retry."
+  - 429 or 5xx (rate limit, overload) → "The AI provider is busy or rate-limited. Wait a moment, then retry."
+  - Invalid output twice → "The AI returned unusable output. Retry; if it keeps happening, check the error details."
+  - Anything else → "Check the error details, then retry."
+  - The key's value is never included in a message.
 PRD ref: `prd.md > Organizing Notes`.
 
 ### Backend: Schemas (`app/schemas.py`) — Schema Check
@@ -169,7 +183,7 @@ PRD ref: `prd.md > Exporting the Checklist`.
 
 ## Data Model
 
-**Qwen output, validated by Pydantic (`Extraction`):**
+**AI output, validated by Pydantic (`Extraction`):**
 ```python
 class ExtractedTask(BaseModel):
     id: str                       # e.g. "t1", used for blocked_by references
@@ -213,15 +227,15 @@ C2C/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py               # FastAPI app: /api/organize, /api/health
-│   │   ├── extract.py            # Qwen call, prompt, one retry, sample mode
+│   │   ├── extract.py            # Gemini call, prompt, one retry, sample mode
 │   │   ├── schemas.py            # Pydantic models (schema check)
 │   │   ├── grounding.py          # normalization + grounding check
-│   │   └── sample_response.json  # saved Qwen-style output for demo/notes.txt (labeled sample)
+│   │   └── sample_response.json  # saved AI-style output for demo/notes.txt (labeled sample)
 │   ├── tests/
 │   │   ├── test_grounding.py     # matching rules: case, spaces, quotes pass; paraphrase fails
 │   │   └── test_schemas.py       # bad/missing fields rejected; sample passes
-│   ├── requirements.txt          # fastapi, uvicorn, openai, python-dotenv, pytest
-│   └── .env.example              # DASHSCOPE_API_KEY=, QWEN_BASE_URL=, QWEN_MODEL=
+│   ├── requirements.txt          # fastapi, uvicorn, google-genai, python-dotenv, pytest, httpx
+│   └── .env.example              # GEMINI_API_KEY=, GEMINI_MODEL=
 ├── frontend/                     # Vite react-ts scaffold
 │   ├── src/
 │   │   ├── App.tsx               # state + two-column layout
@@ -247,21 +261,20 @@ C2C/
 ```
 
 ## External Services and Dependencies
-**Qwen via Alibaba Cloud Model Studio** (OpenAI-compatible mode)
-- Base URL (international): `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. Mainland China accounts use `https://dashscope.aliyuncs.com/compatible-mode/v1`. **Keys are region-specific.**
-- Call: `POST {base}/chat/completions` through `openai.OpenAI(api_key=..., base_url=...)`, with `model` (default `qwen-plus`; verify), `messages`, `response_format={"type":"json_object"}`, `temperature=0`.
-- Response: `choices[0].message.content` is a JSON string → `Extraction`.
-- **Limitation:** JSON mode only, with no schema enforcement on Qwen's side. That's why the Pydantic check exists.
-- Auth: the `DASHSCOPE_API_KEY` env var, backend only.
-- Cost and rate limits: not verified. New Model Studio accounts typically include free trial quota; check the console. The demo makes only a handful of calls.
-- Docs: https://www.alibabacloud.com/help/en/model-studio/ · third-party references used: https://genkit.dev/docs/integrations/dashscope/, https://docs.api7.ai/ai-gateway/providers/qwen
+**Google Gemini API** (official Google Gen AI SDK, `google-genai`)
+- Model: `GEMINI_MODEL` from `backend/.env`, default `gemini-3.1-flash-lite`.
+- Call: `client.models.generate_content(model, contents=notes, config=GenerateContentConfig(system_instruction, response_mime_type="application/json", response_json_schema=Extraction.model_json_schema(), temperature=0))`.
+- Response: `response.text` is a JSON string, validated by Pydantic into `Extraction`. The schema request makes valid output likely, but the reply is still validated: the schema check and the grounding check are what the app trusts.
+- Auth: the `GEMINI_API_KEY` env var, read by the backend only.
+- Cost and rate limits: free-tier limits apply and can change; check https://ai.google.dev/gemini-api/docs/rate-limits. A live smoke test hit a temporary `503 UNAVAILABLE` ("high demand") once; the error UI with Retry handles it.
+- Docs: https://ai.google.dev/gemini-api/docs · https://ai.google.dev/gemini-api/docs/structured-output · https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
 
-**Key setup (non-blocking):** create a Model Studio account → API key in the console → paste it into `backend/.env`. Never paste it in chat. Until then, sample mode works.
+**Key setup (non-blocking):** create a key at https://aistudio.google.com/apikey and put it into `backend/.env` as `GEMINI_API_KEY`. Never paste it in chat or commit it. Until then, sample mode works.
 
 ## Important Failure Modes
-- **Qwen returns malformed or off-schema JSON** → one automatic retry → if it fails again, an error message with **Retry**; the notes are kept.
-- **Network error, bad key, or wrong region** → 502 → the same error UI. The backend logs the real reason in the terminal. The UI message mentions checking the key/region in `.env`.
-- **Qwen paraphrases a source phrase or invents a deadline** → **no retry**; a `Needs verification` warning on the card, and the task stays visible.
+- **Gemini returns malformed or off-schema JSON** → one automatic retry → if it fails again, an error message with **Retry**; the notes are kept.
+- **Network error, bad key, quota, or model overload (503)** → no automatic retry → 502 → the error UI shows the actual cause plus a matching hint (configuration vs. temporary vs. general; see `Backend: AI Extraction Service`) and a **Retry** button. The notes are kept.
+- **Gemini paraphrases a source phrase or invents a deadline** → **no retry**; a `Needs verification` warning on the card, and the task stays visible.
 - **No key set** → sample mode with a visible badge. Pasting non-demo notes in sample mode produces warnings, which is honest behavior.
 
 ## What Was Simplified and Why
@@ -274,7 +287,7 @@ C2C/
 ## Decisions and Open Issues
 **Learner decisions:**
 - React + TypeScript frontend and FastAPI backend: familiar tools, so the effort goes into validation.
-- Qwen via Alibaba Cloud Model Studio; the key lives in `backend/.env`, never in the frontend; the rest of the app must not be blocked on the key.
+- Google Gemini via the official `google-genai` SDK (switched from Qwen during Slice 3); the key lives in `backend/.env`, never in the frontend; the rest of the app must not be blocked on the key.
 - Grounding matching rules: ignore capitalization, repeated whitespace, and straight/curly quotes; otherwise require a contiguous match; no paraphrases; unmatched → warning, not hidden; kept separate from the Pydantic schema check.
 - Owners and deadlines are grounded against their task's source phrase (agreed recommendation).
 - Malformed JSON or a schema failure gets one automatic retry, then fails the whole response (agreed recommendation; tradeoff: a single bad task discards a good response). Grounding failures never retry; they show as warnings (learner clarification).
@@ -284,4 +297,4 @@ C2C/
 
 **Learning unknown — how strict should "verified" be?** This came out of the learner's goal of validating AI output. It was clarified by learning that Qwen offers JSON mode but no schema enforcement, and by the learner defining exact-contiguous matching with three normalizations. **To check during the build:** `test_grounding.py` proves that case, whitespace, and curly-quote variants pass, and that a paraphrase, a missing word, or a reordered phrase fails. Then a live run on `demo/ambiguity-test.txt` shows how often real Qwen output trips the check.
 
-**Open, verify early in the build:** the Qwen base URL and region for the learner's account, the model name (`qwen-plus`), JSON-mode support, and the backend Python environment (resolved: 3.12). No open questions remain from `prd.md`.
+**Open:** none blocking. Gemini model, JSON-schema output, and key setup were confirmed by a live smoke test in Slice 3. No open questions remain from `prd.md`.

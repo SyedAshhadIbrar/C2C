@@ -4,14 +4,14 @@ Paste messy meeting notes and get an editable action plan: tasks, owners, deadli
 
 ## Run it locally
 
-Requires Node 18+ and [uv](https://docs.astral.sh/uv/) (backend uses Python 3.12 or 3.13).
+Requires Node 18+ and [uv](https://docs.astral.sh/uv/) (backend uses Python 3.12).
 
 **One-time setup:**
 ```
 cd backend
 uv venv --python 3.12
 uv pip install -r requirements.txt
-copy .env.example .env        # add DASHSCOPE_API_KEY, or leave blank for sample mode
+copy .env.example .env        # add GEMINI_API_KEY, or leave blank for sample mode
 cd ..\frontend
 npm install
 ```
@@ -29,7 +29,7 @@ npm run dev
 If Organize Notes says it can't reach the backend, terminal 1 isn't running.
 Open http://localhost:5173 and paste the contents of `demo/notes.txt`.
 
-**Sample mode:** with no API key set, the backend returns a saved, labeled sample response for `demo/notes.txt` instead of calling Qwen.
+**Sample mode:** with no API key set, the backend returns a saved, labeled sample response for `demo/notes.txt` instead of calling Gemini.
 
 ## Tests
 ```

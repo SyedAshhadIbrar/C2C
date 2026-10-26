@@ -29,15 +29,15 @@ Build mode: learn (learner asked to have each slice explained and to test it the
   Learner check: Organize the demo notes, then change a word inside one quoted phrase in the left box and organize again. The card for that phrase should show "Needs verification", and the task should still be there.
   Commit: `Add grounding check and verification warnings`
 
-- [ ] **3. Live Qwen extraction with one retry and an error state**
-  Becomes usable: With `DASHSCOPE_API_KEY` set in `backend/.env`, Organize Notes calls Qwen for real. Malformed or off-schema JSON gets exactly one automatic retry. If that fails too, or the network/key fails, the screen shows a red error with a **Retry** button, and the notes stay. Grounding failures never retry. Without a key, sample mode continues.
-  Why now: Qwen's base URL, model name, and JSON-mode behavior are the riskiest unverified assumptions. They're tested now, before the editing and export work is built on top.
+- [x] **3. Live Gemini extraction with one retry and an error state**
+  Becomes usable: With `GEMINI_API_KEY` set in `backend/.env`, Organize Notes calls Gemini for real. Malformed or off-schema JSON gets exactly one automatic retry. If that fails too, or the network/key/model fails, the screen shows a red error with a **Retry** button, and the notes stay. Grounding failures never retry. Without a key, sample mode continues.
+  Why now: The live AI's real output is the riskiest unverified assumption. It's tested now, before the editing and export work is built on top.
   PRD ref: `prd.md > Organizing Notes`, `prd.md > States and Boundaries` (AI failure)
-  Spec ref: `spec.md > Backend: Qwen Extraction Service (`app/extract.py`)`, `spec.md > External Services and Dependencies`, `spec.md > Important Failure Modes`
-  Build: In `extract.py`: the `openai` client with `QWEN_BASE_URL`/`QWEN_MODEL` defaults, the system prompt with the extraction rules, `json_object` mode, temperature 0, one retry for `JSONDecodeError`/`ValidationError` only, and 502 on a second failure (real reason logged). The `ResultsPanel` error state with Retry.
+  Spec ref: `spec.md > Backend: AI Extraction Service (`app/extract.py`)`, `spec.md > External Services and Dependencies`, `spec.md > Important Failure Modes`
+  Build: In `extract.py`: the official `google-genai` client (server-side key), `GEMINI_MODEL` with default `gemini-3.1-flash-lite`, the system prompt with the extraction rules, JSON output with our schema, temperature 0, one retry for malformed JSON/`ValidationError` only, and `ExtractionError` → 502 with the real reason logged. The `ResultsPanel` error state with Retry.
   Verify (mechanical): A pytest with a fake client proves bad JSON → retry → success, two bad replies → error, and that a grounding failure makes one call only. Without a key, `curl` still returns `mode: "sample"`. With a key, one smoke-test `curl` returns `mode: "live"` with valid tasks (or the reported error is traced to the key/region). Forcing a bad base URL shows the error and Retry in the browser.
   Learner check: Put your key in `backend/.env` and restart the backend, organize the demo notes, and compare the live cards to the notes. If the key isn't ready yet, stop the backend and click Organize Notes to see the error and Retry.
-  Commit: `Add live Qwen extraction with single retry and error state`
+  Commit: `Add live Gemini extraction with single retry and error state`
 
 - [ ] **4. Blockers & Dependencies and Open Questions sections**
   Becomes usable: Below the cards, a Blockers & Dependencies list shows "task ← blocked by" for every blocked task, and Open Questions lists unanswered questions with editable wording and a Resolve toggle. Notes with no tasks show "No actionable tasks found," with any questions still listed.
@@ -98,3 +98,4 @@ Activity mode:
 - The "Blocked" pill uses a neutral outline instead of a colored fill, because `spec.md > Look and Feel` reserves red for errors.
 - Re-applied the approved spec corrections (deadline wording, retry rule, Python version) to `spec.md`: an earlier write had updated only `spec.html`. Found during slice 1.
 - Documented the limitation of grounding's strict substring matching: `Friday`/`Fri` verify inside "by Friday" and `Mi` inside "Mia". Found while verifying Slice 2 against the learner's expectations. The learner chose to keep the approved spec's plain substring rule (no whole-word or lead-in-word rules) and record the limitation; see `spec.md > Backend: Grounding Check`.
+- Switched the AI provider from Qwen (Alibaba Cloud Model Studio) to Google Gemini via the official `google-genai` SDK, at the learner's request before Slice 3. `GEMINI_API_KEY`/`GEMINI_MODEL` replace the DashScope/Qwen variables; the schema check, single-retry rule, sample mode, and grounding check are unchanged. Gemini takes a JSON schema directly, but the reply is still validated by Pydantic.

@@ -31,7 +31,7 @@ export default function App() {
       </header>
       <main className="workspace">
         <NotesPanel notes={notes} onChange={setNotes} onOrganize={handleOrganize} loading={status === 'loading'} />
-        <ResultsPanel status={status} plan={plan} error={error} />
+        <ResultsPanel status={status} plan={plan} error={error} onRetry={handleOrganize} />
       </main>
     </div>
   )

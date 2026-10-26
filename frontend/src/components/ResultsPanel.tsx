@@ -7,16 +7,22 @@ interface Props {
   status: Status
   plan: Plan | null
   error: string
+  onRetry: () => void
 }
 
-export default function ResultsPanel({ status, plan, error }: Props) {
+export default function ResultsPanel({ status, plan, error, onRetry }: Props) {
   const titleById = new Map(plan?.tasks.map((t) => [t.id, t.title]))
 
   return (
     <section className="panel results-panel" aria-label="Organized results" aria-busy={status === 'loading'}>
       {status === 'idle' && <EmptyState />}
       {status === 'loading' && <p className="loading">Organizing your notes…</p>}
-      {status === 'error' && <p className="error-msg" role="alert">{error}</p>}
+      {status === 'error' && (
+        <div className="error-msg" role="alert">
+          <p>{error}</p>
+          <button className="btn-secondary" onClick={onRetry}>Retry</button>
+        </div>
+      )}
       {status === 'done' && plan && (
         <>
           <div className="results-toolbar">
