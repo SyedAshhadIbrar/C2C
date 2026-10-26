@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { SELF_DEPENDENCY_LABEL, blockerRows, dependenciesOf, updateQuestion } from './plan'
+import {
+  SELF_DEPENDENCY_LABEL, TITLE_REQUIRED, addTask, blockerRows, deleteTask, dependenciesOf, editTask, nextUserTaskId, titleError, updateQuestion,
+} from './plan'
 import type { Question, Task } from './types'
 
 function task(id: string, patch: Partial<Task> = {}): Task {
   return {
-    id, title: `Task ${id}`, owner: null, ownerOrigin: 'ai', deadline: null, deadlineOrigin: 'ai',
+    id, title: `Task ${id}`, titleOrigin: 'ai', owner: null, ownerOrigin: 'ai', deadline: null, deadlineOrigin: 'ai',
     deadlineAmbiguous: false, sourcePhrase: `phrase ${id}`, blockedBy: [], blockerNote: null,
     origin: 'ai', warnings: [], ...patch,
   }
@@ -113,5 +115,122 @@ describe('updateQuestion', () => {
   it('still allows resolving or reopening alongside a blank text edit', () => {
     const next = updateQuestion(qs, 'q1', { text: '  ', resolved: true })
     expect(next[0]).toEqual({ id: 'q1', text: 'Do we support SSO?', resolved: true })
+  })
+})
+
+// --- Slice 5: editing, deleting, adding tasks ---
+
+const OWNER_W = 'Needs verification: owner not found in source phrase'
+const DEADLINE_W = 'Needs verification: deadline not found in source phrase'
+const SOURCE_W = 'Needs verification: source phrase not found in notes'
+
+describe('editTask', () => {
+  const darkMode = task('t5', { title: 'Finish dark mode', sourcePhrase: "dark mode: let's finish this soon" })
+  const tasks = [task('t1'), darkMode]
+
+  it('sets a missing deadline as User-provided, clears the clarify state, keeps the source phrase', () => {
+    const [, t] = editTask([task('t1'), { ...darkMode, deadlineAmbiguous: true }], 't5', { deadline: '  by Friday ' })
+    expect(t).toMatchObject({ deadline: 'by Friday', deadlineOrigin: 'user', deadlineAmbiguous: false, sourcePhrase: "dark mode: let's finish this soon" })
+  })
+
+  it('sets a missing owner as User-provided', () => {
+    expect(editTask(tasks, 't5', { owner: 'Priya' })[1]).toMatchObject({ owner: 'Priya', ownerOrigin: 'user' })
+  })
+
+  it('marks a changed title as User-edited and trims it', () => {
+    expect(editTask(tasks, 't5', { title: '  Ship dark mode ' })[1]).toMatchObject({ title: 'Ship dark mode', titleOrigin: 'user' })
+  })
+
+  it.each(['', '   ', '\n\t'])('rejects a blank title (%j) and keeps the old one', (blank) => {
+    expect(editTask(tasks, 't5', { title: blank })[1]).toEqual(darkMode)
+  })
+
+  it('clearing owner or deadline sets it back to null (Unassigned / Deadline not specified)', () => {
+    const set = editTask(tasks, 't5', { owner: 'Priya', deadline: 'by Friday' })
+    const cleared = editTask(set, 't5', { owner: '  ', deadline: '' })[1]
+    expect(cleared.owner).toBeNull()
+    expect(cleared.deadline).toBeNull()
+  })
+
+  it('leaves unchanged values as AI-extracted (no badge for a no-op save)', () => {
+    const t = task('t1', { title: 'Finish the auth API', owner: 'Mia', deadline: 'by Friday' })
+    expect(editTask([t], 't1', { title: 'Finish the auth API', owner: 'Mia', deadline: 'by Friday' })[0]).toEqual(t)
+  })
+
+  it("drops only the edited field's grounding warning and keeps the source-phrase warning", () => {
+    const warned = task('t1', { owner: 'Zoe', deadline: 'tomorrow', warnings: [SOURCE_W, OWNER_W, DEADLINE_W] })
+    expect(editTask([warned], 't1', { owner: 'Mia' })[0].warnings).toEqual([SOURCE_W, DEADLINE_W])
+    expect(editTask([warned], 't1', { deadline: 'by Friday' })[0].warnings).toEqual([SOURCE_W, OWNER_W])
+    expect(editTask([warned], 't1', { title: 'New title' })[0].warnings).toEqual([SOURCE_W, OWNER_W, DEADLINE_W])
+  })
+
+  it('never changes id, source phrase, or dependencies, and does not mutate', () => {
+    const t = task('t2', { blockedBy: ['t1'] })
+    const next = editTask([t], 't2', { title: 'X', owner: 'Raj', deadline: 'next week' })[0]
+    expect(next).toMatchObject({ id: 't2', sourcePhrase: 'phrase t2', blockedBy: ['t1'] })
+    expect(t.title).toBe('Task t2')
+  })
+
+  it('leaves other tasks untouched (same objects)', () => {
+    expect(editTask(tasks, 't5', { owner: 'Priya' })[0]).toBe(tasks[0])
+  })
+})
+
+describe('deleteTask', () => {
+  it('removes only that task', () => {
+    const tasks = [task('t1'), task('t2'), task('t3')]
+    expect(deleteTask(tasks, 't2').map((t) => t.id)).toEqual(['t1', 't3'])
+    expect(tasks).toHaveLength(3)
+  })
+
+  it('keeps dangling references so they show as unknown dependencies in card and section', () => {
+    const tasks = [task('t1', { title: 'Finish the auth API' }), task('t2', { blockedBy: ['t1'] })]
+    const after = deleteTask(tasks, 't1')
+    expect(after[0].blockedBy).toEqual(['t1'])
+    expect(dependenciesOf(after[0], after)).toEqual([{ label: 'Unknown task "t1"', known: false }])
+    expect(blockerRows(after)[0].dependencies).toEqual(dependenciesOf(after[0], after))
+  })
+})
+
+describe('addTask', () => {
+  it('adds a User-added task with trimmed optional fields marked as the user\'s', () => {
+    const [, t] = addTask([task('t1')], { title: ' Book the demo room ', owner: ' Sam ', deadline: 'by Monday', sourcePhrase: '' }, 'u1')
+    expect(t).toEqual({
+      id: 'u1', title: 'Book the demo room', titleOrigin: 'user', owner: 'Sam', ownerOrigin: 'user',
+      deadline: 'by Monday', deadlineOrigin: 'user', deadlineAmbiguous: false, sourcePhrase: null,
+      blockedBy: [], blockerNote: null, origin: 'user', warnings: [],
+    })
+  })
+
+  it('leaves unknown owner and deadline null instead of inventing them', () => {
+    expect(addTask([], { title: 'Investigate flaky test' }, 'u1')[0]).toMatchObject({ owner: null, deadline: null })
+  })
+
+  it.each(['', '   '])('rejects a blank title (%j)', (blank) => {
+    const tasks = [task('t1')]
+    expect(addTask(tasks, { title: blank }, 'u1')).toBe(tasks)
+  })
+})
+
+describe('nextUserTaskId', () => {
+  it('counts up from the session counter', () => {
+    expect(nextUserTaskId([], 0)).toEqual({ id: 'u1', counter: 1 })
+    expect(nextUserTaskId([], 1)).toEqual({ id: 'u2', counter: 2 })
+  })
+
+  it('never reuses an id that is still referenced, even after its task was deleted', () => {
+    const tasks = [task('t2', { blockedBy: ['u1'] })] // u1 was deleted; t2 still points at it
+    expect(nextUserTaskId(tasks, 0).id).toBe('u2')
+  })
+
+  it('skips ids still used by tasks', () => {
+    expect(nextUserTaskId([task('u1'), task('u2')], 0).id).toBe('u3')
+  })
+})
+
+describe('titleError', () => {
+  it('requires a non-blank title', () => {
+    expect(titleError('  ')).toBe(TITLE_REQUIRED)
+    expect(titleError('Fix login')).toBeNull()
   })
 })

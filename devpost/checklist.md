@@ -49,13 +49,13 @@ Build mode: learn (learner asked to have each slice explained and to test it the
   Learner check: Organize the demo notes, find the blocked bug in both places, then resolve one open question and reword another.
   Commit: `Add blockers and open questions sections`
 
-- [ ] **5. Edit, delete, and add tasks with user-provided labels**
-  Becomes usable: Title, owner, and deadline are editable inline. Adding a deadline to "Deadline not specified" removes the amber flag and clarify prompt and shows "user-provided", and the source phrase stays. Editing an owner or deadline clears that field's warning. Delete asks for inline confirmation. **Add task** creates a "User-added" card with an optional source phrase.
+- [x] **5. Edit, delete, and add tasks with user-provided labels**
+  Becomes usable: **Edit** on a card makes its title, owner, and deadline editable on the card (Save / Cancel; a blank title is rejected). Adding a deadline to "Deadline not specified" removes the amber flag and clarify prompt and shows **User-provided**, and the source phrase stays. A changed title shows **User-edited**. Clearing an owner or deadline brings back Unassigned / Deadline not specified. Editing an owner or deadline clears only that field's warning. **Delete** asks for inline confirmation; references to a deleted task stay visible as `⚠ Unknown task "<id>"`. **+ Add task** creates a **User-added** card (`u1`, `u2`, … never reused) with an optional, clearly unverified source phrase.
   Why now: Editing depends on the full card and plan shape from slices 1–4, and it must exist before export so the export reflects edits.
   PRD ref: `prd.md > Editing Tasks`, `prd.md > Deleting Tasks`, `prd.md > Adding Tasks`
   Spec ref: `spec.md > Frontend: TaskCard (`src/components/TaskCard.tsx`)`, `spec.md > Data Model`
-  Build: Inline inputs and origin tracking on `TaskCard`, update/delete/add handlers in `App.tsx`, the inline "Delete this task? Yes / No", and the Add task button in the results toolbar.
-  Verify (mechanical): `npm run build` passes. In the browser: adding a date to the "finish this soon" card removes the flag and shows user-provided while keeping the source phrase; the delete confirmation removes a card; Add task shows the User-added pill.
+  Build: `editTask` / `deleteTask` / `addTask` / `nextUserTaskId` / `titleError` in `src/plan.ts`; `titleOrigin` on `Task`; Edit mode, inline delete confirmation, and provenance badges on `TaskCard` (shared `TaskForm`); the + Add task button and form in `ResultsPanel`; handlers and the id counter in `App.tsx`; tests in `plan.test.ts`.
+  Verify (mechanical): `npm test` (vitest) and `pytest` pass, and `npm run build` passes. In the browser: adding a date to the "finish this soon" card removes the flag and shows User-provided while keeping the source phrase; clearing the owner brings back Unassigned; a blank title is blocked; the delete confirmation removes a card and a dependent task then shows `⚠ Unknown task`; Add task shows the User-added pill.
   Learner check: Give the "let's finish this soon" task a deadline and an owner, delete one task, and add one the AI missed.
   Commit: `Add inline task editing, delete confirmation, and add task`
 
@@ -101,3 +101,7 @@ Activity mode:
 - Switched the AI provider from Qwen (Alibaba Cloud Model Studio) to Google Gemini via the official `google-genai` SDK, at the learner's request before Slice 3. `GEMINI_API_KEY`/`GEMINI_MODEL` replace the DashScope/Qwen variables; the schema check, single-retry rule, sample mode, and grounding check are unchanged. Gemini takes a JSON schema directly, but the reply is still validated by Pydantic.
 - Unresolved dependency ids are now kept and shown with a warning, instead of being dropped: the learner asked for unknown `blocked_by` ids to stay visible (Slice 4). `grounding.py` no longer removes them; the spec's data model was updated.
 - Added vitest in Slice 4 instead of Slice 6, to give the Slice 4 section logic (`src/plan.ts`) regression tests.
+- Task editing uses an **Edit** button that turns the card's fields into inputs (Save / Cancel), instead of always-visible inline inputs: it keeps the calm card layout and avoids accidental edits. Still on the card, same page (Slice 5).
+- Added a **User-edited** badge for changed titles (`titleOrigin` on `Task`), and badges are written as `User-added` / `User-edited` / `User-provided`. The learner chose automatic provenance badges only, no free-form tags (Slice 5).
+- A user-entered source phrase on an added task is labeled "Source you entered — not checked against the notes", so a user value is never presented as verified against the notes (learner requirement, Slice 5).
+- User-added task ids are `u1`, `u2`, … from a never-decreasing counter that also skips ids still referenced by dependencies, so a deleted task's dangling reference can't attach to a new task (Slice 5).

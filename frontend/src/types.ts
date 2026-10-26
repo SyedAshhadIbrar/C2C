@@ -3,6 +3,7 @@ export type Origin = 'ai' | 'user'
 export interface Task {
   id: string
   title: string
+  titleOrigin: Origin // "user" = title changed by the user (User-edited)
   owner: string | null
   ownerOrigin: Origin
   deadline: string | null // exact wording from the notes, never converted

@@ -147,7 +147,23 @@ Switches on status: `EmptyState` (idle) · loading · error with **Retry** · re
 PRD ref: `prd.md > States and Boundaries`.
 
 ### Frontend: TaskCard (`src/components/TaskCard.tsx`)
-Shows, in order: title → owner (or `Unassigned` pill) → deadline (or `Deadline not specified` pill + "Clarify the deadline" prompt; an ambiguous deadline also gets the prompt) → source phrase (or a warning) → blocked status ("Blocked by: <task title>"). Title, owner, and deadline are inline inputs. Editing the owner or deadline sets its origin to `user`, shows a `user-provided` pill, and removes the matching missing-info flag and that field's verification warning. The source phrase is never changed by edits. Delete → inline "Delete this task? Yes / No" (no browser dialog). User-added cards show a `User-added` pill and an optional source phrase input; they're never grounding-checked.
+Shows, in order: title (+ provenance badges) → owner (or `Unassigned` pill) → deadline (or `Deadline not specified` pill + "Clarify the deadline" prompt; an ambiguous deadline also gets the prompt) → verification warnings → source phrase → blocked status (see `Frontend: BlockersSection` for the dependency chips) → **Edit** / **Delete** buttons.
+
+**Editing (Slice 5).** **Edit** turns the card's title, owner, and deadline into inputs on the card (same page), with **Save** / **Cancel**. Rules (`editTask` in `src/plan.ts`, an immutable update; other tasks are untouched):
+- **Title** is trimmed and required: a blank or whitespace-only title shows "Title is required." and isn't saved. A changed title is marked `titleOrigin: "user"` → **User-edited** badge.
+- **Owner / deadline** are trimmed. A changed, non-empty value is marked `ownerOrigin` / `deadlineOrigin: "user"` → **User-provided** badge next to it. A deadline is kept exactly as typed (never converted), and setting one clears `deadlineAmbiguous`, so the clarify prompt goes away.
+- **Clearing** an owner or deadline sets it to `null`, so **Unassigned** / **Deadline not specified** (and the clarify prompt) come back. Nothing is filled in automatically.
+- Saving an unchanged value changes nothing, so it keeps no badge and stays AI-extracted.
+- **Warnings:** changing the owner removes only that task's "owner not found in source phrase" warning, and changing the deadline only the "deadline not found in source phrase" one. The user's value replaces the AI claim, but it is **not** described as verified. The **source phrase never changes**, so its "From your notes" quote and any "source phrase not found" warning stay exactly as grounded. Title edits don't touch warnings.
+- `id`, source phrase, and dependencies can't be edited (dependency editing is deferred).
+
+**Deleting.** **Delete** shows an inline "Delete this task? Yes / No" (no browser dialog, no undo). **Yes** removes only that task (`deleteTask`). Other tasks keep their `blockedBy` references to it, so they show the existing `⚠ Unknown task "<id>"` chip on the card and in the Blockers section instead of the reference silently disappearing.
+
+**Adding.** **+ Add task** in the results toolbar opens a dashed "New task" card at the end of the list with title (required, trimmed), owner, deadline, and source phrase (all optional; empty → `null`). `addTask` appends a task with `origin: "user"` → **User-added** badge, no dependencies, and **no grounding check** (`warnings: []`). A source phrase you enter is labeled "Source you entered — not checked against the notes", never "From your notes". On a User-added task, the separate User-provided / User-edited badges are omitted because the whole task is the user's.
+
+**Ids for added tasks** (`nextUserTaskId`): `u1`, `u2`, … from a session counter that only counts up and skips any id still used by a task or referenced in any `blockedBy`. A deleted task's dangling reference therefore can never silently attach to a new task.
+
+**Badges:** `User-added` (created by you), `User-edited` (title changed by you), `User-provided` (owner/deadline entered or changed by you). All are automatic; there are no free-form tags (learner decision, Slice 5).
 PRD ref: `prd.md > Task Cards`, `prd.md > Editing Tasks`, `prd.md > Deleting Tasks`, `prd.md > Adding Tasks`.
 
 ### Frontend: BlockersSection (`src/components/BlockersSection.tsx`)
@@ -221,7 +237,7 @@ class Extraction(BaseModel):
 ```ts
 type Origin = "ai" | "user";
 interface Task {
-  id: string; title: string;
+  id: string; title: string; titleOrigin: Origin;   // "user" = User-edited
   owner: string | null; ownerOrigin: Origin;
   deadline: string | null; deadlineOrigin: Origin; deadlineAmbiguous: boolean;
   sourcePhrase: string | null;   // null allowed only for user-added
@@ -232,7 +248,7 @@ interface Task {
 interface Question { id: string; text: string; resolved: boolean; }
 interface Plan { tasks: Task[]; questions: Question[]; mode: "live" | "sample"; }
 ```
-**Where it lives:** in React state only. It updates through card and question handlers. Leaving or reloading the page loses it, which is intended (`prd.md > States and Boundaries`). The API key lives only in `backend/.env`.
+**Where it lives:** in React state only. It updates through card, question, edit, delete, and add handlers (`src/plan.ts`; every update is immutable). Leaving or reloading the page loses it, which is intended (`prd.md > States and Boundaries`); re-running Organize Notes replaces all edits. The user-added id counter lives in a React ref for the session. The API key lives only in `backend/.env`.
 
 ## File Structure
 ```

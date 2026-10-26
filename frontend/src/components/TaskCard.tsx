@@ -1,38 +1,66 @@
-import { dependenciesOf } from '../plan'
+import { useState } from 'react'
+import { dependenciesOf, titleError, type TaskEdit } from '../plan'
 import type { Task } from '../types'
 
 interface Props {
   task: Task
   tasks: Task[]
   index: number
+  onEdit: (edit: TaskEdit) => void
+  onDelete: () => void
 }
 
-export default function TaskCard({ task, tasks, index }: Props) {
+const Badge = ({ children }: { children: string }) => <span className="pill pill-user">{children}</span>
+
+export default function TaskCard({ task, tasks, index, onEdit, onDelete }: Props) {
+  const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const needsClarify = task.deadline === null || task.deadlineAmbiguous
   const blockers = dependenciesOf(task, tasks)
   const sourceMissing = task.warnings.some((w) => w.includes('source phrase not found'))
+  const userAdded = task.origin === 'user'
 
   return (
     <article className={`task-card${task.warnings.length ? ' needs-verify' : ''}`} style={{ animationDelay: `${index * 30}ms` }}>
-      <div className="task-head">
-        <h3 className="task-title">{task.title}</h3>
-        {task.warnings.length > 0 && <span className="pill pill-warn">Needs verification</span>}
-      </div>
+      {editing ? (
+        <TaskForm
+          initial={{ title: task.title, owner: task.owner ?? '', deadline: task.deadline ?? '' }}
+          submitLabel="Save"
+          onSubmit={(values) => {
+            onEdit(values)
+            setEditing(false)
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <div className="task-head">
+            <h3 className="task-title">{task.title}</h3>
+            {userAdded && <Badge>User-added</Badge>}
+            {!userAdded && task.titleOrigin === 'user' && <Badge>User-edited</Badge>}
+            {task.warnings.length > 0 && <span className="pill pill-warn">Needs verification</span>}
+          </div>
 
-      <dl className="task-fields">
-        <dt>Owner</dt>
-        <dd>{task.owner ?? <span className="pill pill-warn">Unassigned</span>}</dd>
+          <dl className="task-fields">
+            <dt>Owner</dt>
+            <dd>
+              {task.owner ?? <span className="pill pill-warn">Unassigned</span>}
+              {task.owner && task.ownerOrigin === 'user' && !userAdded && <Badge>User-provided</Badge>}
+            </dd>
 
-        <dt>Deadline</dt>
-        <dd>
-          {task.deadline ?? <span className="pill pill-warn">Deadline not specified</span>}
-          {needsClarify && (
-            <span className="clarify">
-              {task.deadline === null ? 'Clarify the deadline' : 'Wording is unclear — clarify the deadline'}
-            </span>
-          )}
-        </dd>
-      </dl>
+            <dt>Deadline</dt>
+            <dd>
+              {task.deadline ?? <span className="pill pill-warn">Deadline not specified</span>}
+              {task.deadline && task.deadlineOrigin === 'user' && !userAdded && <Badge>User-provided</Badge>}
+              {needsClarify && (
+                <span className="clarify">
+                  {task.deadline === null ? 'Clarify the deadline' : 'Wording is unclear — clarify the deadline'}
+                </span>
+              )}
+            </dd>
+          </dl>
+        </>
+      )}
 
       {task.warnings.length > 0 && (
         <ul className="warnings" aria-label="Verification warnings">
@@ -42,12 +70,17 @@ export default function TaskCard({ task, tasks, index }: Props) {
         </ul>
       )}
 
-      {task.sourcePhrase && (
-        <blockquote className={`source${sourceMissing ? ' source-unverified' : ''}`}>
-          <span className="source-label">{sourceMissing ? 'Quoted by AI — not found in your notes' : 'From your notes'}</span>
-          “{task.sourcePhrase}”
-        </blockquote>
-      )}
+      {task.sourcePhrase &&
+        (userAdded ? (
+          <blockquote className="source source-user">
+            <span className="source-label">Source you entered — not checked against the notes</span>“{task.sourcePhrase}”
+          </blockquote>
+        ) : (
+          <blockquote className={`source${sourceMissing ? ' source-unverified' : ''}`}>
+            <span className="source-label">{sourceMissing ? 'Quoted by AI — not found in your notes' : 'From your notes'}</span>
+            “{task.sourcePhrase}”
+          </blockquote>
+        ))}
 
       {blockers.length > 0 && (
         <p className="blocked">
@@ -60,6 +93,79 @@ export default function TaskCard({ task, tasks, index }: Props) {
           ))}
         </p>
       )}
+
+      {!editing && (
+        <div className="task-actions">
+          {confirmDelete ? (
+            <span className="confirm" role="group" aria-label="Confirm delete">
+              Delete this task?
+              <button className="btn-ghost btn-danger" onClick={onDelete}>Yes</button>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>No</button>
+            </span>
+          ) : (
+            <>
+              <button className="btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+              <button className="btn-ghost" onClick={() => setConfirmDelete(true)}>Delete</button>
+            </>
+          )}
+        </div>
+      )}
     </article>
+  )
+}
+
+export interface TaskFormValues {
+  title: string
+  owner: string
+  deadline: string
+  sourcePhrase?: string
+}
+
+/** Shared by Edit (title/owner/deadline) and Add task (plus optional source phrase). */
+export function TaskForm({ initial, submitLabel, onSubmit, onCancel }: {
+  initial: TaskFormValues
+  submitLabel: string
+  onSubmit: (values: TaskFormValues) => void
+  onCancel: () => void
+}) {
+  const [values, setValues] = useState(initial)
+  const [error, setError] = useState<string | null>(null)
+  const set = (field: keyof TaskFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues({ ...values, [field]: e.target.value })
+
+  return (
+    <form
+      className="task-form"
+      onSubmit={(e) => {
+        e.preventDefault()
+        const err = titleError(values.title)
+        setError(err)
+        if (!err) onSubmit(values)
+      }}
+    >
+      <label>
+        Title
+        <input value={values.title} onChange={set('title')} autoFocus aria-invalid={!!error} />
+      </label>
+      {error && <p className="field-error" role="alert">{error}</p>}
+      <label>
+        Owner <span className="muted">(leave empty if unknown)</span>
+        <input value={values.owner} onChange={set('owner')} />
+      </label>
+      <label>
+        Deadline <span className="muted">(as written, e.g. "by Friday"; empty if unknown)</span>
+        <input value={values.deadline} onChange={set('deadline')} />
+      </label>
+      {values.sourcePhrase !== undefined && (
+        <label>
+          Source phrase <span className="muted">(optional)</span>
+          <input value={values.sourcePhrase} onChange={set('sourcePhrase')} />
+        </label>
+      )}
+      <div className="task-actions">
+        <button type="submit" className="btn-primary btn-small">{submitLabel}</button>
+        <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   )
 }

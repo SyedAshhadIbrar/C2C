@@ -39,6 +39,7 @@ export async function organize(notes: string): Promise<Plan> {
     tasks: data.tasks.map((t) => ({
       id: t.id,
       title: t.title,
+      titleOrigin: 'ai',
       owner: t.owner,
       ownerOrigin: 'ai',
       deadline: t.deadline,

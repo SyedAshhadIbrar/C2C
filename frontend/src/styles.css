@@ -117,3 +117,22 @@ button, textarea, input { font: inherit; color: inherit; }
 .btn-ghost { padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .question-text:disabled { background: var(--bg); cursor: not-allowed; }
+
+/* Slice 5: edit / delete / add tasks */
+.pill-user { background: var(--accent-bg); color: var(--accent); }
+.task-head .pill { margin-top: 2px; }
+.task-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.confirm { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.btn-danger { border-color: var(--err); color: var(--err); }
+.btn-danger:hover { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+.btn-small { padding: 6px 14px; font-size: 13px; }
+.toolbar-actions { display: flex; align-items: center; gap: 8px; }
+.task-form { display: grid; gap: 10px; }
+.task-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
+.task-form label .muted { font-weight: 400; }
+.task-form input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); font-size: 14px; font-weight: 400; }
+.task-form input[aria-invalid="true"] { border-color: var(--err); }
+.field-error { margin: -4px 0 0; color: var(--err); font-size: 13px; }
+.add-card { border-style: dashed; border-color: var(--accent); }
+.source-user { border-left-color: var(--muted); }
+.source-user .source-label { color: var(--muted); }
